@@ -9,11 +9,11 @@ The new features are intended to overcome some of the game's annoyances.
 - Free Players - This screen shows all of the out-of-contract players
 - Convert Player to Coach - This screen allows you to retire a player and convert them into a coach
 - Telephone - This adds a few new features:
--- Advertise for fans - Run an ad campaign and increase your fan base, leading to more attendance
--- Entertain team - Take the team for a night out and boost their morale
--- Arrange a training camp - Increase the stats of your players
--- Appeal red card - Ask the FA to overturn a player ban
--- Build new stadium - Save time by building a whole new stadium
+  - Advertise for fans - Run an ad campaign and increase your fan base, leading to more attendance
+  - Entertain team - Take the team for a night out and boost their morale
+  - Arrange a training camp - Increase the stats of your players
+  - Appeal red card - Ask the FA to overturn a player ban
+  - Build new stadium - Save time by building a whole new stadium
 
 ## Screenshots
 ![Loading Screen](https://raw.githubusercontent.com/martinbutt/pm3000/refs/heads/main/docs/screenshots/loading.png)
@@ -53,11 +53,11 @@ make
 ```
 
 ## Acknowledgements
-Special thanks to @eb4x for the https://github.com/eb4x/pm3 project. PM3000 would not exist without it.
+Special thanks to [@eb4x](https://www.github.com/eb4x) for the https://github.com/eb4x/pm3 project. PM3000 would not exist without it.
 
 Thanks to https://github.com/aminosbh/sdl2-image-sample for the SDL2 scaffold to start the project.
 
 ### Uses
-https://github.com/btzy/nativefiledialog-extended
-https://github.com/viznut/unscii
-https://www.1001fonts.com/acknowledge-tt-brk-font.html
+- https://github.com/btzy/nativefiledialog-extended
+- https://github.com/viznut/unscii
+- https://www.1001fonts.com/acknowledge-tt-brk-font.html
