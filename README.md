@@ -16,12 +16,12 @@ The new features are intended to overcome some of the game's annoyances.
 -- Build new stadium - Save time by building a whole new stadium
 
 ## Screenshots
-![Loading Screen](https://raw.githubusercontent.com/martinbutt/pm3/main/docs/screenshots/loading.png)
-![Load Game](https://raw.githubusercontent.com/martinbutt/pm3/main/docs/screenshots/load-game.png)
-![Change Team](https://raw.githubusercontent.com/martinbutt/pm3/main/docs/screenshots/change-team.png)
-![Free Players](https://raw.githubusercontent.com/martinbutt/pm3/main/docs/screenshots/free-players.png)
-![Convert Coach](https://raw.githubusercontent.com/martinbutt/pm3/main/docs/screenshots/convert-coach.png)
-![Telephone](https://raw.githubusercontent.com/martinbutt/pm3/main/docs/screenshots/telephone.png)
+![Loading Screen](https://raw.githubusercontent.com/martinbutt/pm3000/refs/heads/main/docs/screenshots/loading.png)
+![Load Game](https://raw.githubusercontent.com/martinbutt/pm3000/refs/heads/main/docs/screenshots/load-game.png)
+![Change Team](https://raw.githubusercontent.com/martinbutt/pm3000/refs/heads/main/docs/screenshots/change-team.png)
+![Free Players](https://raw.githubusercontent.com/martinbutt/pm3000/refs/heads/main/docs/screenshots/free-players.png)
+![Convert Coach](https://raw.githubusercontent.com/martinbutt/pm3000/refs/heads/main/docs/screenshots/convert-coach.png)
+![Telephone](https://raw.githubusercontent.com/martinbutt/pm3000/refs/heads/main/docs/screenshots/telephone.png)
 
 ## Building
 
