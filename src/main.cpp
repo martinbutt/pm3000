@@ -359,8 +359,6 @@ private:
 
     bool backupSaveFile(int number);
 
-    [[nodiscard]] static std::string getGameFilename(int gameNumber, char gameLetter);
-
     void checkGamePathSettings();
 
     void ensureMetadataLoaded(bool attachClickCallbacks);
@@ -860,24 +858,22 @@ void Application::choosePm3Folder() {
 }
 
 void Application::loadGame(int gameNumber) {
-    std::filesystem::path saveGamePath = settings.gamePath / get_saves_folder(settings.gameType);
+    std::string gameaName = construct_save_file_path(settings.gamePath, gameNumber, 'A');
+    std::string gamebName = construct_save_file_path(settings.gamePath, gameNumber, 'B');
+    std::string gamecName = construct_save_file_path(settings.gamePath, gameNumber, 'C');
 
-    std::string gameaName = getGameFilename(gameNumber, 'A');
-    std::string gamebName = getGameFilename(gameNumber, 'B');
-    std::string gamecName = getGameFilename(gameNumber, 'C');
-
-    if (std::filesystem::file_size(saveGamePath / gameaName) != saveGameSizes[0]) {
+    if (std::filesystem::file_size(gameaName) != saveGameSizes[0]) {
         sprintf(footer, "INVALID %s FILESIZE", gameaName.c_str());
         return;
-    } else if (std::filesystem::file_size(saveGamePath / gamebName) != saveGameSizes[1]) {
+    } else if (std::filesystem::file_size(gamebName) != saveGameSizes[1]) {
         sprintf(footer, "INVALID %s FILESIZE", gamebName.c_str());
         return;
-    } else if (std::filesystem::file_size(saveGamePath / gamecName) != saveGameSizes[2]) {
+    } else if (std::filesystem::file_size(gamecName) != saveGameSizes[2]) {
         sprintf(footer, "INVALID %s FILESIZE", gamecName.c_str());
         return;
     }
 
-    load_binaries(gameNumber, saveGamePath.c_str());
+    load_binaries(gameNumber, settings.gamePath);
 
     currentGame = gameNumber;
     sprintf(footer, "GAME %d LOADED", gameNumber);
@@ -893,10 +889,9 @@ void Application::loadGameConfirm(int gameNumber) {
 
 void Application::saveGame(int gameNumber) {
     if (backupSaveFile(gameNumber)) {
-        std::filesystem::path saveGamePath = settings.gamePath / get_saves_folder(settings.gameType);
         update_metadata(gameNumber);
-        save_binaries(gameNumber, saveGamePath.c_str());
-        save_metadata(saveGamePath.c_str());
+        save_binaries(gameNumber, settings.gamePath);
+        save_metadata(settings.gamePath);
         sprintf(footer, "GAME %d SAVED", gameNumber);
     } else {
         sprintf(footer, "ERROR SAVING: COULDN'T BACKUP SAVE GAME %d", gameNumber);
@@ -1086,21 +1081,14 @@ void Application::ensureMetadataLoaded(bool attachClickCallbacks) {
     if (attachClickCallbacks) {
         memoizeSaveFiles();
         if (currentGame == 0) {
-            load_default_clubdata(settings.gamePath.c_str());
+            load_default_clubdata(settings.gamePath);
         }
-        std::filesystem::path saveGamePath = settings.gamePath / get_saves_folder(settings.gameType);
-        load_metadata(saveGamePath.c_str());
+        load_metadata(settings.gamePath);
     }
 }
 
 bool Application::checkSaveFileExists(int gameNumber, char gameLetter) {
-    std::string gameFilename = getGameFilename(gameNumber, gameLetter);
-    std::filesystem::path saveGamePath = settings.gamePath / get_saves_folder(settings.gameType) / gameFilename;
-    return std::filesystem::exists(saveGamePath);
-}
-
-std::string Application::getGameFilename(int gameNumber, char gameLetter) {
-    return "GAME" + std::to_string(gameNumber) + gameLetter;
+    return std::filesystem::exists(construct_save_file_path(settings.gamePath, gameNumber, gameLetter));
 }
 
 void Application::memoizeSaveFiles() {
@@ -1227,7 +1215,7 @@ void Application::changeTeamScreen(bool attachClickCallbacks) {
         char clubText[34];
         snprintf(clubText, sizeof(clubText), "Club changed to %16.16s", club.name);
 
-        change_club(selectedClub, 0);
+        change_club(selectedClub, settings.gamePath.c_str(), 0);
         Application::writeTextSmall(clubText, 8, nullptr, 0);
 
         if (attachClickCallbacks) {
@@ -1894,14 +1882,14 @@ void Application::resetTextBlocks() {
 
 bool Application::backupSaveFile(int gameNumber) {
     for (char c = 'A'; c <= 'C'; ++c) {
-        std::filesystem::path saveGamePath = settings.gamePath / get_saves_folder(settings.gameType) / getGameFilename(gameNumber, c);
+        std::filesystem::path saveGamePath = construct_save_file_path(settings.gamePath, gameNumber, c);
 
         try {
             if (!std::filesystem::exists(saveGamePath)) {
                 return true;
             }
 
-            std::filesystem::path backupPath = settings.gamePath / get_saves_folder(settings.gameType) / BACKUP_SAVE_PATH;
+            std::filesystem::path backupPath = construct_saves_folder_path(settings.gamePath) / BACKUP_SAVE_PATH;
 
             if (!std::filesystem::exists(backupPath)) {
                 if (!std::filesystem::create_directories(backupPath)) {
