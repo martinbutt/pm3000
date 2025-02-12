@@ -963,11 +963,7 @@ void Application::mustLoadGameScreen([[maybe_unused]] bool attachClickCallbacks)
 void Application::settingsScreen(bool attachClickCallbacks) {
     Application::writeHeader("Settings", nullptr);
 
-    std::function<void(void)> folderClickCallback = nullptr;
-
-    if (attachClickCallbacks) {
-        folderClickCallback = [this] { choosePm3Folder(); };
-    }
+    std::function<void(void)> folderClickCallback = attachClickCallbacks ? [this] { choosePm3Folder(); } : std::function<void(void)>{};
 
     char text[70] = "Click here to choose PM3 folder";
     if (settings.gamePath != "") {
@@ -980,14 +976,7 @@ void Application::settingsScreen(bool attachClickCallbacks) {
     Application::writeTextSmall(gameTypeNames[settings.gameType], 4, folderClickCallback, 0);
 
     if (currentGame != 0) {
-        std::function<void(void)>levelAggressionClickCallback = nullptr;
-
-        if (attachClickCallbacks) {
-            levelAggressionClickCallback = [this] {
-                level_aggression();
-                strcpy(footer, "AGGRESSION LEVELED");
-            };
-        }
+        std::function<void(void)> levelAggressionClickCallback = attachClickCallbacks ? [this] { level_aggression(); strcpy(footer, "AGGRESSION LEVELED"); } : std::function<void(void)>{};
 
         Application::writeTextSmall("LEVEL AGGRESSION", 6, levelAggressionClickCallback, 0);
         Application::addTextBlock(
@@ -1020,11 +1009,12 @@ void Application::loadGameScreen(bool attachClickCallbacks) {
         char gameLabel[62];
         formatSaveGameLabel(i, gameLabel, sizeof(gameLabel));
 
-        if (attachClickCallbacks) {
-            Application::writeTextSmall(gameLabel, i + 2, [this, i] { loadGameConfirm(i); }, 0);
-        } else {
-            Application::writeTextSmall(gameLabel, i + 2, nullptr, 0);
-        }
+        Application::writeTextSmall(
+                gameLabel,
+                i + 2,
+                attachClickCallbacks ? std::function<void(void)>{ [this, i] { loadGameConfirm(i); } } : nullptr,
+                0
+        );
     }
 }
 
@@ -1050,11 +1040,12 @@ void Application::saveGameScreen(bool attachClickCallbacks) {
         char gameLabel[62];
         formatSaveGameLabel(i, gameLabel, sizeof(gameLabel));
 
-        if (attachClickCallbacks) {
-            Application::writeTextSmall(gameLabel, i + 2, [this, i] { saveGameConfirm(i); }, 0);
-        } else {
-            Application::writeTextSmall(gameLabel, i + 2, nullptr, 0);
-        }
+        Application::writeTextSmall(
+                gameLabel,
+                i + 2,
+                attachClickCallbacks ? std::function<void(void)>{ [this, i] { saveGameConfirm(i); } } : nullptr,
+                0
+        );
     }
 }
 
@@ -1078,13 +1069,14 @@ void Application::checkGamePathSettings() {
 }
 
 void Application::ensureMetadataLoaded(bool attachClickCallbacks) {
-    if (attachClickCallbacks) {
-        memoizeSaveFiles();
-        if (currentGame == 0) {
-            load_default_clubdata(settings.gamePath);
-        }
-        load_metadata(settings.gamePath);
+    if (!attachClickCallbacks) {
+        return;
     }
+    memoizeSaveFiles();
+    if (currentGame == 0) {
+        load_default_clubdata(settings.gamePath);
+    }
+    load_metadata(settings.gamePath);
 }
 
 bool Application::checkSaveFileExists(int gameNumber, char gameLetter) {
@@ -1188,15 +1180,18 @@ void Application::scoutScreen(bool attachClickCallbacks) {
         int textLine = 4;
         Application::writePlayers(players, textLine);
 
-        if (attachClickCallbacks) {
-            Application::writeTextSmall("« Back", 16, [this] {
-                selectedClub = -1;
-                resetClickableAreas();
-                clickableAreasConfigured = false;
-            }, 0);
-        } else {
-            Application::writeTextSmall("« Back", 16, nullptr, 0);
-        }
+        Application::writeTextSmall(
+                "« Back",
+                16,
+                attachClickCallbacks
+                ? std::function<void(void)>{ [this] {
+                    selectedClub = -1;
+                    resetClickableAreas();
+                    clickableAreasConfigured = false;
+                }}
+                : nullptr,
+                0
+        );
     }
 }
 
@@ -1218,16 +1213,18 @@ void Application::changeTeamScreen(bool attachClickCallbacks) {
         change_club(selectedClub, settings.gamePath.c_str(), 0);
         Application::writeTextSmall(clubText, 8, nullptr, 0);
 
-        if (attachClickCallbacks) {
-            Application::writeTextSmall("« Back", 16, [this] {
-                selectedClub = -1;
-
-                resetClickableAreas();
-                clickableAreasConfigured = false;
-            }, 0);
-        } else {
-            Application::writeTextSmall("« Back", 16, nullptr, 0);
-        }
+        Application::writeTextSmall(
+                "« Back",
+                16,
+                attachClickCallbacks
+                ? std::function<void(void)>{ [this] {
+                    selectedClub = -1;
+                    resetClickableAreas();
+                    clickableAreasConfigured = false;
+                }}
+                : nullptr,
+                0
+        );
     }
 }
 
@@ -1259,44 +1256,54 @@ void Application::writeClubMenu(const char *heading, bool attachClickCallbacks) 
         char clubName[17];
         snprintf(clubName, sizeof(clubName), "%16.16s", get_club(club_idx).name);
 
-        if (attachClickCallbacks) {
-            writeTextSmall(clubName, textLine, [this, club_idx] {
-                selectedClub = club_idx;
-                resetClickableAreas();
-                clickableAreasConfigured = false;
-            }, offsetLeft);
-        } else {
-            writeTextSmall(clubName, textLine, nullptr, offsetLeft);
-        }
+        writeTextSmall(
+                clubName,
+                textLine,
+                attachClickCallbacks
+                ? std::function<void(void)>{ [this, club_idx] {
+                    selectedClub = club_idx;
+                    resetClickableAreas();
+                    clickableAreasConfigured = false;
+                }}
+                : nullptr,
+                offsetLeft
+        );
+
         textLine++;
     }
 
-    if (attachClickCallbacks) {
-        writeTextSmall("« Back", 16, [this] {
-            selectedDivision = -1;
-            selectedClub = -1;
-            resetClickableAreas();
-            clickableAreasConfigured = false;
-        }, 0);
-    } else {
-        writeTextSmall("« Back", 16, nullptr, 0);
-    }
+    writeTextSmall(
+            "« Back",
+            16,
+            attachClickCallbacks
+            ? std::function<void(void)>{ [this] {
+                selectedDivision = -1;
+                selectedClub = -1;
+                resetClickableAreas();
+                clickableAreasConfigured = false;
+            }}
+            : nullptr,
+            0
+    );
 }
 
 void Application::writeDivisionsMenu(const char *heading, bool attachClickCallbacks) {
     writeSubHeader(heading, nullptr);
 
     for (size_t i = 0; i < std::size(division); i++) {
-        if (attachClickCallbacks) {
-            writeTextSmall(division[i], i + 3, [this, i] {
-                selectedDivision = i;
-                selectedClub = -1;
-                resetClickableAreas();
-                clickableAreasConfigured = false;
-            }, 0);
-        } else {
-            writeTextSmall(division[i], i + 3, nullptr, 0);
-        }
+        writeTextSmall(
+                division[i],
+                i + 3,
+                attachClickCallbacks
+                ? std::function<void(void)>{ [this, i] {
+                    selectedDivision = i;
+                    selectedClub = -1;
+                    resetClickableAreas();
+                    clickableAreasConfigured = false;
+                }}
+                : nullptr,
+                0
+        );
     }
 }
 
@@ -1359,327 +1366,260 @@ void Application::convertCoachScreen([[maybe_unused]] bool attachClickCallbacks)
 
 void Application::telephoneScreen(bool attachClickCallbacks) {
 
+    struct TelephoneMenuItem {
+        std::string text;
+        int line;
+        std::function<void(void)> callback;
+    };
+
     Application::writeHeader("TELEPHONE", nullptr);
 
-    if (attachClickCallbacks) {
-        Application::writeTextSmall("ADVERTISE FOR FANS               (£25,000)", 3, [this] {
-            resetTextBlocks();
+    std::vector<TelephoneMenuItem> menuItems = {
+            {"ADVERTISE FOR FANS               (£25,000)", 3, [this] {
+                resetTextBlocks();
+                struct gamea::manager &manager = gamea.manager[0];
+                struct gameb::club &club = get_club(manager.club_idx);
 
-            std::string result;
-            struct gamea::manager &manager = gamea.manager[0];
-            struct gameb::club &club = get_club(manager.club_idx);
+                int fandomIncreasePercent = 3 + std::rand() % (7 - 3 + 1);
+                club.seating_avg = std::min(club.seating_avg * (1.0 + (fandomIncreasePercent / 100.0)), static_cast<double>(club.seating_max));
+                club.bank_account -= 25000;
 
-            int fandomIncreasePercent = 3 + std::rand() % (7 - 3 + 1);
-            club.seating_avg = club.seating_avg * (1.0 + (fandomIncreasePercent / 100.0));
-            club.seating_avg = club.seating_avg > club.seating_max ? club.seating_max : club.seating_avg;
+                std::string result = "\"We'll certainly see our ticket sales increase after this!\" - Assistant Manager\n\n"
+                                     "Fans increased by " + std::to_string(fandomIncreasePercent) + "%";
+                Application::addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+            }},
+            {"ENTERTAIN TEAM                    (£5,000)", 4, [this] {
+                resetTextBlocks();
+                struct gamea::manager &manager = gamea.manager[0];
+                struct gameb::club &club = get_club(manager.club_idx);
 
-            result = "\"We'll certainly see our ticket sales increase after this!\" - Assistant Manager\n\nFans increased by " +
-                     std::to_string(fandomIncreasePercent) + "%";
-
-            club.bank_account -= 25000;
-
-            Application::addTextBlock(result.c_str(), 400, 75, 200,
-                                      Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
-
-        }, 0);
-        Application::writeTextSmall("ENTERTAIN TEAM                    (£5,000)", 4, [this] {
-            resetTextBlocks();
-
-            std::string result;
-            struct gamea::manager &manager = gamea.manager[0];
-            struct gameb::club &club = get_club(manager.club_idx);
-
-            for (int i = 0; i < 24; ++i) {
-                struct gamec::player &player = get_player(club.player_index[i]);
-                player.morl = 9;
-            }
-
-            result = "\"The team disperse into the streets, singing the praises of their generous manager.\" - Assistant Manager";
-
-            result += "\n\nTeam morale has been boosted";
-
-            club.bank_account -= 5000;
-
-            Application::addTextBlock(result.c_str(), 400, 75, 200,
-                                      Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
-
-        }, 0);
-        Application::writeTextSmall("ARRANGE SMALL TRAINING CAMP     (£500,000)", 5, [this] {
-            resetTextBlocks();
-
-            std::string result;
-            struct gamea::manager &manager = gamea.manager[0];
-            struct gameb::club &club = get_club(manager.club_idx);
-
-            for (int i = 0; i < 24; ++i) {
-                struct gamec::player &player = get_player(club.player_index[i]);
-
-                player.hn += std::rand() % 2;
-                player.hn = player.hn > 99 ? 99 : player.hn;
-                player.tk += std::rand() % 2;
-                player.tk = player.tk > 99 ? 99 : player.tk;
-                player.ps += std::rand() % 2;
-                player.ps = player.ps > 99 ? 99 : player.ps;
-                player.sh += std::rand() % 2;
-                player.sh = player.sh > 99 ? 99 : player.sh;
-                player.hd += std::rand() % 2;
-                player.hd = player.hd > 99 ? 99 : player.hd;
-                player.cr += std::rand() % 2;
-                player.cr = player.cr > 99 ? 99 : player.cr;
-                player.aggr += 1;
-                player.aggr = player.aggr > 9 ? 9 : player.aggr;
-                player.ft = 99;
-                player.morl = 9;
-            }
-
-            result = "\"The team is looking quicker on their feet!\" - Assistant Manager";
-            result += "\n\nTeam stats increased";
-
-            club.bank_account -= 500000;
-
-            Application::addTextBlock(result.c_str(), 400, 75, 200,
-                                      Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
-
-        }, 0);
-        Application::writeTextSmall("ARRANGE MEDIUM TRAINING CAMP  (£1,000,000)", 6, [this] {
-            resetTextBlocks();
-
-            std::string result;
-            struct gamea::manager &manager = gamea.manager[0];
-            struct gameb::club &club = get_club(manager.club_idx);
-
-            for (int i = 0; i < 24; ++i) {
-                struct gamec::player &player = get_player(club.player_index[i]);
-
-                player.hn += std::rand() % 4;
-                player.hn = player.hn > 99 ? 99 : player.hn;
-                player.tk += std::rand() % 4;
-                player.tk = player.tk > 99 ? 99 : player.tk;
-                player.ps += std::rand() % 4;
-                player.ps = player.ps > 99 ? 99 : player.ps;
-                player.sh += std::rand() % 4;
-                player.sh = player.sh > 99 ? 99 : player.sh;
-                player.hd += std::rand() % 4;
-                player.hd = player.hd > 99 ? 99 : player.hd;
-                player.cr += std::rand() % 4;
-                player.cr = player.cr > 99 ? 99 : player.cr;
-                player.aggr += 1;
-                player.aggr = player.aggr > 9 ? 9 : player.aggr;
-                player.ft = 99;
-                player.morl = 9;
-            }
-
-            result = "\"The boys showed real progress!\" - Assistant Manager";
-            result += "\n\nTeam stats increased";
-
-            club.bank_account -= 1000000;
-
-            Application::addTextBlock(result.c_str(), 400, 75, 200,
-                                      Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
-
-        }, 0);
-        Application::writeTextSmall("ARRANGE LARGE TRAINING CAMP   (£2,000,000)", 7, [this] {
-            resetTextBlocks();
-
-            std::string result;
-            struct gamea::manager &manager = gamea.manager[0];
-            struct gameb::club &club = get_club(manager.club_idx);
-
-            for (int i = 0; i < 24; ++i) {
-                struct gamec::player &player = get_player(club.player_index[i]);
-
-                player.hn += std::rand() % 8;
-                player.hn = player.hn > 99 ? 99 : player.hn;
-                player.tk += std::rand() % 8;
-                player.tk = player.tk > 99 ? 99 : player.tk;
-                player.ps += std::rand() % 8;
-                player.ps = player.ps > 99 ? 99 : player.ps;
-                player.sh += std::rand() % 8;
-                player.sh = player.sh > 99 ? 99 : player.sh;
-                player.hd += std::rand() % 8;
-                player.hd = player.hd > 99 ? 99 : player.hd;
-                player.cr += std::rand() % 8;
-                player.cr = player.cr > 99 ? 99 : player.cr;
-                player.aggr += 1;
-                player.aggr = player.aggr > 9 ? 9 : player.aggr;
-                player.ft = 99;
-                player.morl = 9;
-            }
-
-            result = "\"They are like a new team!\" - Assistant Manager";
-            result += "\n\nTeam stats increased";
-
-            club.bank_account -= 2000000;
-
-            Application::addTextBlock(result.c_str(), 400, 75, 200,
-                                      Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
-
-        }, 0);
-        Application::writeTextSmall("APPEAL RED CARD                  (£10,000)", 8, [this] {
-            resetTextBlocks();
-
-            std::string result;
-            struct gamea::manager &manager = gamea.manager[0];
-            struct gameb::club &club = get_club(manager.club_idx);
-
-            result = "No banned player found";
-
-            for (int i = 0; i < 24; ++i) {
-                struct gamec::player &player = get_player(club.player_index[i]);
-                if (player.period > 0 && player.period_type == 0) {
-                    if (std::rand() % 2 == 0) {
-                        player.period = 0;
-                        result = "\"We see what you mean. We've overturned the decision for " +
-                                 std::string(player.name, sizeof(player.name)) + ".\" - The FA";
-                    } else {
-                        result = "\"Sorry, but our decision was fair.\" - The FA";
-                    }
-                    club.bank_account -= 10000;
-                    break;
+                for (int i = 0; i < 24; ++i) {
+                    struct gamec::player &player = get_player(club.player_index[i]);
+                    player.morl = 9;
                 }
-            }
 
-            Application::addTextBlock(result.c_str(), 400, 75, 200,
-                                      Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+                std::string result = "\"The team disperse into the streets, singing the praises of their generous manager.\"\n\n"
+                                     "Team morale has been boosted";
+                club.bank_account -= 5000;
+                Application::addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+            }},
+            {"ARRANGE SMALL TRAINING CAMP     (£500,000)", 5, [this] {
+                resetTextBlocks();
+                struct gamea::manager &manager = gamea.manager[0];
+                struct gameb::club &club = get_club(manager.club_idx);
 
-        }, 0);
-        Application::writeTextSmall("BUILD NEW 25k SEAT STADIUM    (£5,000,000)", 9, [this] {
-            resetTextBlocks();
+                for (int i = 0; i < 24; ++i) {
+                    struct gamec::player &player = get_player(club.player_index[i]);
+                    player.hn = std::min(player.hn + std::rand() % 2, 99);
+                    player.tk = std::min(player.tk + std::rand() % 2, 99);
+                    player.ps = std::min(player.ps + std::rand() % 2, 99);
+                    player.sh = std::min(player.sh + std::rand() % 2, 99);
+                    player.hd = std::min(player.hd + std::rand() % 2, 99);
+                    player.cr = std::min(player.cr + std::rand() % 2, 99);
+                    player.aggr = std::min(player.aggr + 1, 9);
+                    player.ft = 99;
+                    player.morl = 9;
+                }
 
-            std::string result;
-            struct gamea::manager &manager = gamea.manager[0];
-            struct gameb::club &club = get_club(manager.club_idx);
+                std::string result = "\"The team is looking quicker on their feet!\" - Assistant Manager\n\n"
+                                     "Team stats increased";
+                club.bank_account -= 500000;
+                Application::addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+            }},
+            {"ARRANGE MEDIUM TRAINING CAMP  (£1,000,000)", 6, [this] {
+                resetTextBlocks();
+                struct gamea::manager &manager = gamea.manager[0];
+                struct gameb::club &club = get_club(manager.club_idx);
 
-            int currentStadiumValue = calculateStadiumValue(manager);
+                for (int i = 0; i < 24; ++i) {
+                    struct gamec::player &player = get_player(club.player_index[i]);
 
-            club.seating_max = 25000;
+                    player.hn += std::rand() % 4;
+                    player.hn = player.hn > 99 ? 99 : player.hn;
+                    player.tk += std::rand() % 4;
+                    player.tk = player.tk > 99 ? 99 : player.tk;
+                    player.ps += std::rand() % 4;
+                    player.ps = player.ps > 99 ? 99 : player.ps;
+                    player.sh += std::rand() % 4;
+                    player.sh = player.sh > 99 ? 99 : player.sh;
+                    player.hd += std::rand() % 4;
+                    player.hd = player.hd > 99 ? 99 : player.hd;
+                    player.cr += std::rand() % 4;
+                    player.cr = player.cr > 99 ? 99 : player.cr;
+                    player.aggr += 1;
+                    player.aggr = player.aggr > 9 ? 9 : player.aggr;
+                    player.ft = 99;
+                    player.morl = 9;
+                }
 
-            manager.stadium.ground_facilities.level = 2;
-            manager.stadium.supporters_club.level = 2;
-            manager.stadium.flood_lights.level = 1;
-            manager.stadium.scoreboard.level = 2;
-            manager.stadium.undersoil_heating.level = 0;
-            manager.stadium.changing_rooms.level = 1;
-            manager.stadium.gymnasium.level = 2;
-            manager.stadium.car_park.level = 1;
+                std::string result = "\"The boys showed real progress!\" - Assistant Manager\n\n"
+                                     "Team stats increased";
+                club.bank_account -= 1000000;
+                Application::addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+            }},
+            {"ARRANGE LARGE TRAINING CAMP (£2,000,000)", 7, [this] {
+                resetTextBlocks();
+                struct gamea::manager &manager = gamea.manager[0];
+                struct gameb::club &club = get_club(manager.club_idx);
 
-            for (int i = 0; i < sizeof (manager.stadium.safety_rating); ++i) {
-                manager.stadium.safety_rating[i] = 3;
-            }
+                for (int i = 0; i < 24; ++i) {
+                    struct gamec::player &player = get_player(club.player_index[i]);
+                    player.hn = std::min(player.hn + std::rand() % 8, 99);
+                    player.tk = std::min(player.tk + std::rand() % 8, 99);
+                    player.ps = std::min(player.ps + std::rand() % 8, 99);
+                    player.sh = std::min(player.sh + std::rand() % 8, 99);
+                    player.hd = std::min(player.hd + std::rand() % 8, 99);
+                    player.cr = std::min(player.cr + std::rand() % 8, 99);
+                    player.aggr = std::min(player.aggr + 1, 9);
+                    player.ft = 99;
+                    player.morl = 9;
+                }
 
-            for (int i = 0; i < 4; ++i) {
-                manager.stadium.capacity[i].seating = 6250;
-                manager.stadium.capacity[i].terraces = 0;
-                manager.stadium.conversion[i].level = 1;
-                manager.stadium.area_covering[i].level = 2;
-            }
+                std::string result = "\"They are like a new team!\" - Assistant Manager\n\n"
+                                     "Team stats increased";
+                club.bank_account -= 2000000;
+                Application::addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+            }},
+            {"APPEAL RED CARD                  (£10,000)", 8, [this] {
+                resetTextBlocks();
+                struct gamea::manager &manager = gamea.manager[0];
+                struct gameb::club &club = get_club(manager.club_idx);
+                std::string result = "No banned player found";
 
-            club.bank_account -= (5000000-currentStadiumValue);
+                for (int i = 0; i < 24; ++i) {
+                    struct gamec::player &player = get_player(club.player_index[i]);
+                    if (player.period > 0 && player.period_type == 0) {
+                        if (std::rand() % 2 == 0) {
+                            player.period = 0;
+                            result = "\"We see what you mean. We've overturned the decision for " +
+                                     std::string(player.name, sizeof(player.name)) + ".\" - The FA";
+                        } else {
+                            result = "\"Sorry, but our decision was fair.\" - The FA";
+                        }
+                        club.bank_account -= 10000;
+                        break;
+                    }
+                }
+                Application::addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+            }},
+            {"BUILD NEW 25k SEAT STADIUM    (£5,000,000)", 9, [this] {
+                resetTextBlocks();
+                struct gamea::manager &manager = gamea.manager[0];
+                struct gameb::club &club = get_club(manager.club_idx);
 
-            result = "\"The new 25,000 seat stadium is ready! The fans are going to love it!\" - Assistant Manager";
-            result += "\n\n\"We'll buy your old stadium for £"+std::to_string(currentStadiumValue)+" to tear down and turn into flats\" - Local Council";
+                int currentStadiumValue = calculateStadiumValue(manager);
 
-            Application::addTextBlock(result.c_str(), 400, 75, 200,
-                                      Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+                club.seating_max = 25000;
 
-        }, 0);
+                manager.stadium.ground_facilities.level = 2;
+                manager.stadium.supporters_club.level = 2;
+                manager.stadium.flood_lights.level = 1;
+                manager.stadium.scoreboard.level = 2;
+                manager.stadium.undersoil_heating.level = 0;
+                manager.stadium.changing_rooms.level = 1;
+                manager.stadium.gymnasium.level = 2;
+                manager.stadium.car_park.level = 1;
 
-        Application::writeTextSmall("BUILD NEW 50k SEAT STADIUM   (£10,000,000)", 10, [this] {
-            resetTextBlocks();
+                for (int i = 0; i < sizeof (manager.stadium.safety_rating); ++i) {
+                    manager.stadium.safety_rating[i] = 3;
+                }
 
-            std::string result;
-            struct gamea::manager &manager = gamea.manager[0];
-            struct gameb::club &club = get_club(manager.club_idx);
+                for (int i = 0; i < 4; ++i) {
+                    manager.stadium.capacity[i].seating = 6250;
+                    manager.stadium.capacity[i].terraces = 0;
+                    manager.stadium.conversion[i].level = 1;
+                    manager.stadium.area_covering[i].level = 2;
+                }
 
-            int currentStadiumValue = calculateStadiumValue(manager);
+                club.bank_account -= (5000000 - currentStadiumValue);
 
-            club.seating_max = 50000;
+                std::string result = "\"The new 25,000 seat stadium is ready! The fans are going to love it!\" - Assistant Manager\n\n"
+                                     "\"We'll buy your old stadium for £" + std::to_string(currentStadiumValue) +
+                                     " to tear down and turn into flats\" - Local Council";
+                Application::addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+            }},
+            {"BUILD NEW 50k SEAT STADIUM   (£10,000,000)", 10, [this] {
+                resetTextBlocks();
+                struct gamea::manager &manager = gamea.manager[0];
+                struct gameb::club &club = get_club(manager.club_idx);
 
-            manager.stadium.ground_facilities.level = 2;
-            manager.stadium.supporters_club.level = 2;
-            manager.stadium.flood_lights.level = 2;
-            manager.stadium.scoreboard.level = 2;
-            manager.stadium.undersoil_heating.level = 1;
-            manager.stadium.changing_rooms.level = 2;
-            manager.stadium.gymnasium.level = 2;
-            manager.stadium.car_park.level = 2;
+                int currentStadiumValue = calculateStadiumValue(manager);
+                club.seating_max = 50000;
 
-            for (int i = 0; i < sizeof (manager.stadium.safety_rating); ++i) {
-                manager.stadium.safety_rating[i] = 4;
-            }
+                manager.stadium.ground_facilities.level = 2;
+                manager.stadium.supporters_club.level = 2;
+                manager.stadium.flood_lights.level = 2;
+                manager.stadium.scoreboard.level = 2;
+                manager.stadium.undersoil_heating.level = 1;
+                manager.stadium.changing_rooms.level = 2;
+                manager.stadium.gymnasium.level = 2;
+                manager.stadium.car_park.level = 2;
 
-            for (int i = 0; i < 4; ++i) {
-                manager.stadium.capacity[i].seating = 12500;
-                manager.stadium.capacity[i].terraces = 0;
-                manager.stadium.conversion[i].level = 2;
-                manager.stadium.area_covering[i].level = 3;
-            }
+                for (int i = 0; i < sizeof (manager.stadium.safety_rating); ++i) {
+                    manager.stadium.safety_rating[i] = 4;
+                }
 
-            club.bank_account -= (10000000-currentStadiumValue);
+                for (int i = 0; i < 4; ++i) {
+                    manager.stadium.capacity[i].seating = 12500;
+                    manager.stadium.capacity[i].terraces = 0;
+                    manager.stadium.conversion[i].level = 2;
+                    manager.stadium.area_covering[i].level = 3;
+                }
 
-            Application::addTextBlock("\"The new 50,000 seat stadium is ready! It's incredible!\" - Assistant Manager", 400, 75, 200,
-                                      Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+                club.bank_account -= (10000000 - currentStadiumValue);
 
-            result = "\"The new 50,000 seat stadium is ready! It's incredible!\" - Assistant Manager";
-            result += "\n\n\"We'll buy your old stadium for £"+std::to_string(currentStadiumValue)+" for a nearby school to use\" - Local Council";
+                std::string result = "\"The new 50,000 seat stadium is ready! It's incredible!\" - Assistant Manager\n\n"
+                                     "\"We'll buy your old stadium for £" + std::to_string(currentStadiumValue) +
+                                     " for a nearby school to use\" - Local Council";
+                Application::addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+            }},
+            {"BUILD NEW 100k SEAT STADIUM  (£15,000,000)", 11, [this] {
+                resetTextBlocks();
+                struct gamea::manager &manager = gamea.manager[0];
+                struct gameb::club &club = get_club(manager.club_idx);
 
-            Application::addTextBlock(result.c_str(), 400, 75, 200,
-                                      Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+                int currentStadiumValue = calculateStadiumValue(manager);
 
-        }, 0);
+                club.seating_max = 100000;
 
-        Application::writeTextSmall("BUILD NEW 100k SEAT STADIUM  (£15,000,000)", 11, [this] {
-            resetTextBlocks();
+                manager.stadium.ground_facilities.level = 3;
+                manager.stadium.supporters_club.level = 3;
+                manager.stadium.flood_lights.level = 2;
+                manager.stadium.scoreboard.level = 3;
+                manager.stadium.undersoil_heating.level = 1;
+                manager.stadium.changing_rooms.level = 2;
+                manager.stadium.gymnasium.level = 3;
+                manager.stadium.car_park.level = 2;
 
-            std::string result;
-            struct gamea::manager &manager = gamea.manager[0];
-            struct gameb::club &club = get_club(manager.club_idx);
+                for (int i = 0; i < sizeof (manager.stadium.safety_rating); ++i) {
+                    manager.stadium.safety_rating[i] = 4;
+                }
 
-            int currentStadiumValue = calculateStadiumValue(manager);
+                for (int i = 0; i < 4; ++i) {
+                    manager.stadium.capacity[i].seating = 25000;
+                    manager.stadium.capacity[i].terraces = 0;
+                    manager.stadium.conversion[i].level = 2;
+                    manager.stadium.area_covering[i].level = 3;
+                }
 
-            club.seating_max = 100000;
+                club.bank_account -= (15000000 - currentStadiumValue);
 
-            manager.stadium.ground_facilities.level = 3;
-            manager.stadium.supporters_club.level = 3;
-            manager.stadium.flood_lights.level = 2;
-            manager.stadium.scoreboard.level = 3;
-            manager.stadium.undersoil_heating.level = 1;
-            manager.stadium.changing_rooms.level = 2;
-            manager.stadium.gymnasium.level = 3;
-            manager.stadium.car_park.level = 2;
+                std::string result = "\"The new 100,000 seat stadium is ready! It's so nice, I bought my mum a season ticket!\" - Assistant Manager\n\n"
+                                     "\"We'll buy your old stadium for £" + std::to_string(currentStadiumValue) +
+                                     " to turn into a sports center\" - Local Council";
+                Application::addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+            }},
+    };
 
-            for (int i = 0; i < sizeof (manager.stadium.safety_rating); ++i) {
-                manager.stadium.safety_rating[i] = 4;
-            }
-
-            for (int i = 0; i < 4; ++i) {
-                manager.stadium.capacity[i].seating = 25000;
-                manager.stadium.capacity[i].terraces = 0;
-                manager.stadium.conversion[i].level = 2;
-                manager.stadium.area_covering[i].level = 3;
-            }
-
-            club.bank_account -= (20000000-currentStadiumValue);
-
-            result = "\"The new 100,000 seat stadium is ready! It's so nice, I bought my mum a season ticket!\" - Assistant Manager";
-            result += "\n\n\"We'll buy your old stadium for £"+std::to_string(currentStadiumValue)+" to turn into a sports center\" - Local Council";
-
-            Application::addTextBlock(result.c_str(), 400, 75, 200,
-                                      Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
-
-        }, 0);
-    } else {
-        Application::writeTextSmall("ADVERTISE FOR FANS               (£25,000)", 3, nullptr, 0);
-        Application::writeTextSmall("ENTERTAIN TEAM                    (£5,000)", 4, nullptr, 0);
-        Application::writeTextSmall("ARRANGE SMALL TRAINING CAMP     (£500,000)", 5, nullptr, 0);
-        Application::writeTextSmall("ARRANGE MEDIUM TRAINING CAMP  (£1,000,000)", 6, nullptr, 0);
-        Application::writeTextSmall("ARRANGE LARGE TRAINING CAMP   (£2,000,000)", 7, nullptr, 0);
-        Application::writeTextSmall("APPEAL RED CARD                  (£10,000)", 8, nullptr, 0);
-        Application::writeTextSmall("BUILD NEW 25k SEAT STADIUM    (£5,000,000)", 9, nullptr, 0);
-        Application::writeTextSmall("BUILD NEW 50k SEAT STADIUM   (£10,000,000)", 10, nullptr, 0);
-        Application::writeTextSmall("BUILD NEW 100k SEAT STADIUM  (£15,000,000)", 11, nullptr, 0);
+// Iterate through menu items and apply the ternary operator
+    for (const auto& item : menuItems) {
+        Application::writeTextSmall(
+                item.text.c_str(),
+                item.line,
+                attachClickCallbacks ? std::function<void(void)>{ item.callback } : nullptr,
+                0
+        );
     }
-
 }
 
 int Application::calculateStadiumValue(struct gamea::manager &manager) {
