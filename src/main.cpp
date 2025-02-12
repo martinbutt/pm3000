@@ -116,8 +116,8 @@ public:
     void run();
 
 private:
-    SDL_Window *window{};
-    SDL_Renderer *renderer{};
+    SDL_Window *window = nullptr;
+    SDL_Renderer *renderer = nullptr;
 
     bool quit = false;
 
@@ -1457,7 +1457,7 @@ void Application::telephoneScreen(bool attachClickCallbacks) {
                 club.bank_account -= 1000000;
                 Application::addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
             }},
-            {"ARRANGE LARGE TRAINING CAMP (£2,000,000)", 7, [this] {
+            {"ARRANGE LARGE TRAINING CAMP   (£2,000,000)", 7, [this] {
                 resetTextBlocks();
                 struct gamea::manager &manager = gamea.manager[0];
                 struct gameb::club &club = get_club(manager.club_idx);
