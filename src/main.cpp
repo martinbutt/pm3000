@@ -1103,12 +1103,12 @@ void Application::freePlayersScreen(bool attachClickCallbacks) {
 
     int textLine = 4;
     int pageSize = 25;
-    currentPage = currentPage == 0 ? 1 : currentPage;
+    currentPage = (currentPage == 0) ? 1 : currentPage;
     totalPages = 0;
 
     if (freePlayers.size() > 25) {
         pageSize = 24;
-        totalPages = (freePlayers.size() / 24) + 1;
+        totalPages = std::ceil(static_cast<double>(freePlayers.size()) / pageSize);
     }
 
     int start = (currentPage - 1) * pageSize;
