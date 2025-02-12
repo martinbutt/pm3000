@@ -30,7 +30,7 @@ The new features are intended to overcome some of the game's annoyances.
 **On Debian/Ubuntu based distributions, use the following command:**
 
 ```sh
-sudo apt install git build-essential pkg-config cmake cmake-data libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev
+sudo apt install git build-essential pkg-config cmake cmake-data libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libgtk-3-dev
 ```
 
 ### Instructions
