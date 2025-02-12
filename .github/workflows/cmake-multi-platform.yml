@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - dev
   pull_request:
     branches:
       - main
+      - dev
 
 jobs:
   build:
@@ -18,7 +20,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repository with submodules
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -27,19 +29,25 @@ jobs:
       - name: Install dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt update
-          sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev cmake ninja-build
+          sudo apt-get update
+          sudo apt-get install -y \
+            libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev \
+            libgtk-3-dev cmake ninja-build
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install cmake ninja sdl2 sdl2_image sdl2_ttf gtk+3
 
       - name: Install dependencies (Windows)
         if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
           choco install -y cmake ninja sdl2 sdl2-image sdl2-ttf
-
-      - name: Install dependencies (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          brew install cmake ninja sdl2 sdl2_image sdl2_ttf
+          echo "GTK installation requires MSYS2"
+          choco install -y msys2
+          refreshenv
+          C:\msys64\usr\bin\bash -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3"
 
       - name: Configure CMake
         run: cmake -B build -G Ninja
