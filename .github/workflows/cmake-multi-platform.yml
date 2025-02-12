@@ -26,6 +26,16 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Cache CMake
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/CMake
+            C:/ProgramData/chocolatey/lib/cmake
+          key: cmake-${{ matrix.os }}-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            cmake-${{ matrix.os }}-
+
       - name: Install dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -58,5 +68,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SDL-Build-${{ matrix.os }}
+          name: PM3000-${{ matrix.os }}
           path: build/
