@@ -4,13 +4,18 @@
 #include <SDL_ttf.h>
 #include <functional>
 #include "nfd.h"
-#include "pm3.hh"
 #include <unistd.h>
 #include <map>
 #include <filesystem>
 #include <fstream>
 #include <bitset>
 #include <random>
+#include <cstdlib>
+#include <algorithm>
+#include <cctype>
+#include <cstring>
+#include <array>
+#include "pm3_utils.hh"
 
 #define TEXT_TYPE_HEADER   0
 #define TEXT_TYPE_LARGE    1
@@ -78,7 +83,11 @@ typedef enum {
     TEXT_JUSTIFICATION_CENTER
 } textJustification;
 
-const char *gameTypeNames[NUM_GAME_TYPES] = {"Unknown Edition", "Standard Edition", "Deluxe Edition"};
+constexpr std::array<const char*, static_cast<size_t>(Pm3GameType::NumGameTypes)> gameTypeNames{
+        "Unknown Edition",
+        "Standard Edition",
+        "Deluxe Edition"
+};
 
 const int saveGameSizes[3] = {29554, 139080, 157280};
 
@@ -145,7 +154,7 @@ private:
 
     struct settingsStruct {
         std::filesystem::path gamePath = "";
-        pm3_game_type gameType = PM3_UNKNOWN;
+        Pm3GameType gameType = Pm3GameType::Unknown;
 
         void serialize(std::ostream &out) const {
             std::string pathStr = gamePath.string();
@@ -212,6 +221,15 @@ private:
 
     int selectedDivision = -1;
     int selectedClub = -1;
+
+    bool readingTextInput = false;
+    char textInput[13] = "            ";
+    std::function<void(void)> textInputCallback;
+
+    struct offerResponse {
+        bool accepted;
+        char message[75];
+    };
 
     using screenCallback = std::function<void(bool)>;
 
@@ -332,7 +350,7 @@ private:
 
     void telephoneScreen(bool attachClickCallbacks);
 
-    int calculateStadiumValue(struct gamea::manager &manager);
+    int calculateStadiumValue(struct gamea::ManagerRecord &manager);
 
     void toggleWindowed();
 
@@ -347,7 +365,8 @@ private:
 
     void writeClubMenu(const char *heading, bool attachClickCallbacks);
 
-    int writePlayers(std::vector<club_player> &players, int &textLine);
+    int writePlayers(std::vector<club_player> &players, int &textLine,
+                     const std::function<void(const club_player &)> &clickCallback);
 
     void renderText(const std::string &text, const SDL_Color &color, int x, int y, int w,
                     textJustification justification, TTF_Font *font,
@@ -361,7 +380,7 @@ private:
 
     void checkGamePathSettings();
 
-    void ensureMetadataLoaded(bool attachClickCallbacks);
+    bool ensureMetadataLoaded(bool attachClickCallbacks);
 
     static void formatSaveGameLabel(int i, char *gameLabel, size_t gameLabelSize);
 
@@ -373,7 +392,25 @@ private:
 
     void convertCoachScreen(bool attachClickCallbacks);
 
-    void convertPlayerToCoach(struct gamea::manager &manager, struct gameb::club &club, int8_t clubPlayerIdx);
+    void convertPlayerToCoach(struct gamea::ManagerRecord &manager, ClubRecord &club, int8_t clubPlayerIdx);
+
+    void makeOffer(const club_player &playerInfo);
+
+    void startReadingTextInput(std::function<void(void)>);
+
+    void endReadingTextInput();
+
+    offerResponse assessOffer(const club_player &playerInfo, int offerAmount);
+
+    int16_t findPlayerIndex(const PlayerRecord &player);
+
+    int findClubIndexForPlayer(int16_t playerIdx);
+
+    int findEmptySlot(ClubRecord &club);
+
+    void completeTransfer(int16_t playerIdx, int fromClubIdx, int toClubIdx, int offerAmount);
+
+    std::string formatCurrency(int amount);
 };
 
 bool windowed = true;
@@ -403,7 +440,7 @@ void Application::initializeSDL() {
     loadFont(SHORT_FONT_PATH, TEXT_TYPE_PLAYER);
 
     Application::loadPrefs();
-    settings.gameType = get_pm3_game_type(settings.gamePath.c_str());
+    settings.gameType = getPm3GameType(settings.gamePath.c_str());
 
 #if defined linux && SDL_VERSION_ATLEAST(2, 0, 8)
     // Disable compositor bypass
@@ -489,6 +526,28 @@ void Application::run() {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT || this->quit) {
                 quit = true;
+            } else if (readingTextInput && event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_BACKSPACE) {
+                size_t len = strlen(textInput);
+                if (len > 0) {
+                    textInput[len - 1] = '\0';
+                    if (textInputCallback) {
+                        textInputCallback();
+                    }
+                }
+            } else if (readingTextInput && event.type == SDL_TEXTINPUT) {
+                const char *incomingText = event.text.text;
+                size_t incomingLen = strlen(incomingText);
+                size_t currentLen = strlen(textInput);
+                bool numeric = std::all_of(incomingText, incomingText + incomingLen, [](unsigned char c) {
+                    return std::isdigit(c);
+                });
+
+                if (numeric && (currentLen + incomingLen) < sizeof(textInput)) {
+                    strcat(textInput, incomingText);
+                    if (textInputCallback) {
+                        textInputCallback();
+                    }
+                }
             } else if (event.type == SDL_MOUSEBUTTONDOWN) {
                 if (event.button.button == 1) {
                     SDL_SetCursor(leftClickCursor);
@@ -817,7 +876,8 @@ void Application::resetClickableAreas() {
 
 void Application::checkKeyPressCallback(char key) {
     if (key > 0 && keyPressCallbacks[key].callback) {
-        keyPressCallbacks[key].callback();
+        auto cb = keyPressCallbacks[key].callback; // copy to avoid self-destruction issues
+        cb();
     }
 }
 
@@ -845,7 +905,7 @@ void Application::choosePm3Folder() {
 
     nfdresult_t result = NFD_PickFolder(&outPath, settings.gamePath.empty() ? nullptr : settings.gamePath.c_str());
     if (result == NFD_OKAY) {
-        settings.gameType = get_pm3_game_type(outPath);
+        settings.gameType = getPm3GameType(outPath);
         settings.gamePath = outPath;
         NFD_FreePath(outPath);
         Application::savePrefs();
@@ -858,9 +918,9 @@ void Application::choosePm3Folder() {
 }
 
 void Application::loadGame(int gameNumber) {
-    std::string gameaName = construct_save_file_path(settings.gamePath, gameNumber, 'A');
-    std::string gamebName = construct_save_file_path(settings.gamePath, gameNumber, 'B');
-    std::string gamecName = construct_save_file_path(settings.gamePath, gameNumber, 'C');
+    std::string gameaName = constructSaveFilePath(settings.gamePath, gameNumber, 'A');
+    std::string gamebName = constructSaveFilePath(settings.gamePath, gameNumber, 'B');
+    std::string gamecName = constructSaveFilePath(settings.gamePath, gameNumber, 'C');
 
     if (std::filesystem::file_size(gameaName) != saveGameSizes[0]) {
         sprintf(footer, "INVALID %s FILESIZE", gameaName.c_str());
@@ -873,7 +933,7 @@ void Application::loadGame(int gameNumber) {
         return;
     }
 
-    load_binaries(gameNumber, settings.gamePath);
+    loadBinaries(gameNumber, settings.gamePath);
 
     currentGame = gameNumber;
     sprintf(footer, "GAME %d LOADED", gameNumber);
@@ -889,9 +949,9 @@ void Application::loadGameConfirm(int gameNumber) {
 
 void Application::saveGame(int gameNumber) {
     if (backupSaveFile(gameNumber)) {
-        update_metadata(gameNumber);
-        save_binaries(gameNumber, settings.gamePath);
-        save_metadata(settings.gamePath);
+        updateMetadata(gameNumber);
+        saveBinaries(gameNumber, settings.gamePath);
+        saveMetadata(settings.gamePath);
         sprintf(footer, "GAME %d SAVED", gameNumber);
     } else {
         sprintf(footer, "ERROR SAVING: COULDN'T BACKUP SAVE GAME %d", gameNumber);
@@ -973,10 +1033,10 @@ void Application::settingsScreen(bool attachClickCallbacks) {
 
     Application::writeTextSmall("PM3 Folder", 2, nullptr, 0);
     Application::writeTextSmall(text, 3, folderClickCallback, 0);
-    Application::writeTextSmall(gameTypeNames[settings.gameType], 4, folderClickCallback, 0);
+    Application::writeTextSmall(gameTypeNames[static_cast<size_t>(settings.gameType)], 4, folderClickCallback, 0);
 
     if (currentGame != 0) {
-        std::function<void(void)> levelAggressionClickCallback = attachClickCallbacks ? [this] { level_aggression(); strcpy(footer, "AGGRESSION LEVELED"); } : std::function<void(void)>{};
+        std::function<void(void)> levelAggressionClickCallback = attachClickCallbacks ? [this] { levelAggression(); strcpy(footer, "AGGRESSION LEVELED"); } : std::function<void(void)>{};
 
         Application::writeTextSmall("LEVEL AGGRESSION", 6, levelAggressionClickCallback, 0);
         Application::addTextBlock(
@@ -990,7 +1050,11 @@ void Application::settingsScreen(bool attachClickCallbacks) {
 void Application::loadGameScreen(bool attachClickCallbacks) {
     checkGamePathSettings();
 
-    ensureMetadataLoaded(attachClickCallbacks);
+    if (!ensureMetadataLoaded(attachClickCallbacks)) {
+        Application::writeHeader("Load Game", nullptr);
+        Application::writeTextSmall(pm3LastError().c_str(), 4, nullptr, 0);
+        return;
+    }
 
     Application::writeHeader("Load Game", nullptr);
 
@@ -1021,7 +1085,11 @@ void Application::loadGameScreen(bool attachClickCallbacks) {
 void Application::saveGameScreen(bool attachClickCallbacks) {
     checkGamePathSettings();
 
-    ensureMetadataLoaded(attachClickCallbacks);
+    if (!ensureMetadataLoaded(attachClickCallbacks)) {
+        Application::writeHeader("Save Game", nullptr);
+        Application::writeTextSmall(pm3LastError().c_str(), 4, nullptr, 0);
+        return;
+    }
 
     Application::writeHeader("Save Game", nullptr);
 
@@ -1051,9 +1119,9 @@ void Application::saveGameScreen(bool attachClickCallbacks) {
 
 void Application::formatSaveGameLabel(int i, char *gameLabel, size_t gameLabelSize) {
     snprintf(gameLabel, gameLabelSize, "GAME %1.1d %16.16s %16.16s %3.3s Week %2.2d %4.4d", i,
-             saves.game[i - 1].manager[0].name, get_club(saves.game[i - 1].manager[0].club_idx).name,
-             day[saves.game[i - 1].turn % 3],
-             (saves.game[i - 1].turn / 3) + 1, saves.game[i - 1].year);
+             savesDir.game[i - 1].manager[0].name, getClub(savesDir.game[i - 1].manager[0].club_idx).name,
+             dayNames[savesDir.game[i - 1].turn % 3],
+             (savesDir.game[i - 1].turn / 3) + 1, savesDir.game[i - 1].year);
 }
 
 
@@ -1062,25 +1130,32 @@ void Application::checkGamePathSettings() {
         writeTextLarge("Configure PM3 path in settings", 4, nullptr);
         return;
     }
-    if (settings.gameType == PM3_UNKNOWN) {
+    if (settings.gameType == Pm3GameType::Unknown) {
         writeTextLarge("UNKNOWN PM3 GAME TYPE", 4, nullptr);
         return;
     }
 }
 
-void Application::ensureMetadataLoaded(bool attachClickCallbacks) {
+bool Application::ensureMetadataLoaded(bool attachClickCallbacks) {
     if (!attachClickCallbacks) {
-        return;
+        return true;
     }
+
     memoizeSaveFiles();
     if (currentGame == 0) {
-        load_default_clubdata(settings.gamePath);
+        loadDefaultClubdata(settings.gamePath);
     }
-    load_metadata(settings.gamePath);
+
+    if (!loadMetadata(settings.gamePath)) {
+        snprintf(footer, sizeof(footer), "%.64s", pm3LastError().c_str());
+        return false;
+    }
+
+    return true;
 }
 
 bool Application::checkSaveFileExists(int gameNumber, char gameLetter) {
-    return std::filesystem::exists(construct_save_file_path(settings.gamePath, gameNumber, gameLetter));
+    return std::filesystem::exists(constructSaveFilePath(settings.gamePath, gameNumber, gameLetter));
 }
 
 void Application::memoizeSaveFiles() {
@@ -1093,10 +1168,10 @@ void Application::freePlayersScreen(bool attachClickCallbacks) {
     Application::writeHeader("FREE PLAYERS", nullptr);
 
     if (attachClickCallbacks) {
-        freePlayers = find_free_players();
+        freePlayers = findFreePlayers();
     }
 
-    if (find_free_players().empty()) {
+    if (findFreePlayers().empty()) {
         Application::writeTextSmall("No free players found", 8, nullptr, 0);
         return;
     }
@@ -1117,13 +1192,13 @@ void Application::freePlayersScreen(bool attachClickCallbacks) {
 
     std::vector<club_player> displayPlayers(freePlayers.begin() + start, freePlayers.begin() + end);
 
-    writePlayers(displayPlayers, textLine);
+    writePlayers(displayPlayers, textLine, std::function<void(const club_player &)>{});
 }
 
 void Application::myTeamScreen([[maybe_unused]] bool attachClickCallbacks) {
     writeHeader("TEAM SQUAD", nullptr);
 
-    std::vector<club_player> myPlayers = get_my_players(0);
+    std::vector<club_player> myPlayers = getMyPlayers(0);
 
     if (myPlayers.empty()) {
         writeTextSmall("No players found", 8, nullptr, 0);
@@ -1132,7 +1207,7 @@ void Application::myTeamScreen([[maybe_unused]] bool attachClickCallbacks) {
 
     int textLine = 4;
 
-    textLine = writePlayers(myPlayers, textLine);
+    textLine = writePlayers(myPlayers, textLine, std::function<void(const club_player &)>{});
 
     for (int i = textLine; i <= 27; i++) {
         char playerRow[69] = "................ . ............ .. .. .. .. .. .. .. . . . .. .....";
@@ -1140,7 +1215,177 @@ void Application::myTeamScreen([[maybe_unused]] bool attachClickCallbacks) {
     }
 }
 
-int Application::writePlayers(std::vector<club_player> &players, int &textLine) {
+void Application::makeOffer(const club_player &playerInfo) {
+    resetKeyPressCallbacks();
+    startReadingTextInput([this, playerInfo] {
+        std::string formattedAmount = strlen(textInput) ? formatCurrency(std::atoi(textInput)) : "..........";
+        snprintf(footer, sizeof(footer), "           Offer amount for %12.12s £%13.13s",
+                 playerInfo.player.name, formattedAmount.c_str());
+    });
+
+    snprintf(footer, sizeof(footer), "           Offer amount for %12.12s £..........", playerInfo.player.name);
+
+    addKeyPressCallback(SDLK_RETURN, [this, playerInfo] {
+        int offer = std::atoi(textInput);
+        auto response = assessOffer(playerInfo, offer);
+        snprintf(footer, sizeof(footer), "           %.58s", response.message);
+        resetKeyPressCallbacks();
+        endReadingTextInput();
+    });
+}
+
+Application::offerResponse Application::assessOffer(const club_player &playerInfo, int offerAmount) {
+    offerResponse result{false, ""};
+
+    if (offerAmount <= 0) {
+        snprintf(result.message, sizeof(result.message), "Enter a numeric offer");
+        return result;
+    }
+
+    if (currentGame == 0) {
+        snprintf(result.message, sizeof(result.message), "Load a game before bidding");
+        return result;
+    }
+
+    int16_t playerIdx = findPlayerIndex(playerInfo.player);
+    if (playerIdx == -1) {
+        snprintf(result.message, sizeof(result.message), "Player not found in save");
+        return result;
+    }
+
+    int fromClubIdx = findClubIndexForPlayer(playerIdx);
+    if (fromClubIdx == -1) {
+        snprintf(result.message, sizeof(result.message), "Unable to locate player's club");
+        return result;
+    }
+
+    int myClubIdx = gameData.manager[0].club_idx;
+    if (fromClubIdx == myClubIdx) {
+        snprintf(result.message, sizeof(result.message), "Player already in your squad");
+        return result;
+    }
+
+    int squadSlot = -1;
+    const ClubRecord &sourceClub = playerInfo.club;
+    for (int i = 0; i < 24; ++i) {
+        if (sourceClub.player_index[i] == -1) {
+            continue;
+        }
+        if (std::memcmp(&playerData.player[sourceClub.player_index[i]], &playerInfo.player, sizeof(PlayerRecord)) == 0) {
+            squadSlot = i;
+            break;
+        }
+    }
+
+    int basePrice = determinePlayerPrice(playerInfo.player, playerInfo.club, squadSlot);
+    int importance = std::max(determinePlayerImportance(playerInfo.player, playerInfo.club), 1);
+    int askingPrice = static_cast<int>(basePrice * (1.0 + (importance - 1) * 0.15));
+
+    if (offerAmount < askingPrice) {
+        std::string priceText = formatCurrency(askingPrice);
+        snprintf(result.message, sizeof(result.message), "Offer rejected - needs about £%s", priceText.c_str());
+        return result;
+    }
+
+    ClubRecord &myClub = getClub(myClubIdx);
+    if (findEmptySlot(myClub) == -1) {
+        snprintf(result.message, sizeof(result.message), "No free slot in your squad");
+        return result;
+    }
+
+    completeTransfer(playerIdx, fromClubIdx, myClubIdx, offerAmount);
+
+    snprintf(result.message, sizeof(result.message), "Offer accepted - %12.12s signed", playerInfo.player.name);
+    result.accepted = true;
+    return result;
+}
+
+void Application::startReadingTextInput(std::function<void(void)> callback) {
+    addKeyPressCallback(SDLK_ESCAPE, [this] {
+        resetKeyPressCallbacks();
+        endReadingTextInput();
+    });
+
+    textInput[0] = '\0';
+    SDL_StartTextInput();
+    readingTextInput = true;
+    textInputCallback = std::move(callback);
+}
+
+void Application::endReadingTextInput() {
+    SDL_StopTextInput();
+    readingTextInput = false;
+    textInput[0] = '\0';
+}
+
+int16_t Application::findPlayerIndex(const PlayerRecord &player) {
+    for (int16_t idx = 0; idx < 3932; ++idx) {
+        if (std::memcmp(&getPlayer(idx), &player, sizeof(PlayerRecord)) == 0) {
+            return idx;
+        }
+    }
+
+    return -1;
+}
+
+int Application::findClubIndexForPlayer(int16_t playerIdx) {
+    for (int clubIdx = 0; clubIdx < 114; ++clubIdx) {
+        ClubRecord &club = getClub(clubIdx);
+        for (int slot = 0; slot < 24; ++slot) {
+            if (club.player_index[slot] == playerIdx) {
+                return clubIdx;
+            }
+        }
+    }
+
+    return -1;
+}
+
+int Application::findEmptySlot(ClubRecord &club) {
+    for (int slot = 0; slot < 24; ++slot) {
+        if (club.player_index[slot] == -1) {
+            return slot;
+        }
+    }
+    return -1;
+}
+
+void Application::completeTransfer(int16_t playerIdx, int fromClubIdx, int toClubIdx, int offerAmount) {
+    ClubRecord &fromClub = getClub(fromClubIdx);
+    ClubRecord &toClub = getClub(toClubIdx);
+
+    for (int slot = 0; slot < 24; ++slot) {
+        if (fromClub.player_index[slot] == playerIdx) {
+            fromClub.player_index[slot] = -1;
+            break;
+        }
+    }
+
+    int destSlot = findEmptySlot(toClub);
+    if (destSlot != -1) {
+        toClub.player_index[destSlot] = playerIdx;
+    }
+
+    fromClub.bank_account += offerAmount;
+    toClub.bank_account -= offerAmount;
+
+    PlayerRecord &player = getPlayer(playerIdx);
+    player.contract = std::max<uint8_t>(player.contract, static_cast<uint8_t>(2));
+    player.morl = std::max<uint8_t>(player.morl, static_cast<uint8_t>(6));
+}
+
+std::string Application::formatCurrency(int amount) {
+    std::string text = std::to_string(amount);
+    int insertPosition = static_cast<int>(text.length()) - 3;
+    while (insertPosition > 0) {
+        text.insert(insertPosition, ",");
+        insertPosition -= 3;
+    }
+    return text;
+}
+
+int Application::writePlayers(std::vector<club_player> &players, int &textLine,
+                              const std::function<void(const club_player &)> &clickCallback) {
     writePlayerSubHeader("CLUB NAME        T PLAYER NAME  HN TK PS SH HD CR FT F M A AG WAGES", 3,
                          nullptr);
 
@@ -1148,11 +1393,18 @@ int Application::writePlayers(std::vector<club_player> &players, int &textLine) 
         char playerRow[77];
         snprintf(playerRow, sizeof(playerRow),
                  "%16.16s %1c %12.12s %2.2d %2.2d %2.2d %2.2d %2.2d %2.2d %2.2d %1.1s %1.1d %1.1d %2.2d %5d",
-                 player.club.name, determine_player_type(player.player), player.player.name, player.player.hn,
+                 player.club.name, determinePlayerType(player.player), player.player.name, player.player.hn,
                  player.player.tk, player.player.ps, player.player.sh, player.player.hd, player.player.cr,
-                 player.player.ft, foot_short[player.player.foot], player.player.morl, player.player.aggr,
+                 player.player.ft, footShortLabels[player.player.foot], player.player.morl, player.player.aggr,
                  player.player.age, player.player.wage);
-        writePlayer(playerRow, determine_player_type(player.player), textLine++, nullptr);
+        writePlayer(playerRow,
+                    determinePlayerType(player.player),
+                    textLine++,
+                    clickCallback ? std::function<void(void)>{
+                            [player, clickCallback] {
+                                clickCallback(player);
+                            }}
+                                  : std::function<void(void)>{});
     }
     return textLine;
 }
@@ -1166,19 +1418,19 @@ void Application::scoutScreen(bool attachClickCallbacks) {
     } else if (selectedClub == -1) {
         writeClubMenu("CHOOSE TEAM TO SCOUT", attachClickCallbacks);
     } else {
-        struct gameb::club &club = get_club(selectedClub);
+        ClubRecord &club = getClub(selectedClub);
         std::vector<club_player> players{};
 
         for (int i = 0; i < 24; ++i) {
             if (club.player_index[i] == -1) {
                 continue;
             }
-            struct gamec::player &p = get_player(club.player_index[i]);
+            PlayerRecord &p = getPlayer(club.player_index[i]);
             players.push_back(club_player{club, p});
         }
 
         int textLine = 4;
-        Application::writePlayers(players, textLine);
+        Application::writePlayers(players, textLine, attachClickCallbacks ? [this](const club_player &playerInfo) { makeOffer(playerInfo); } : std::function<void(const club_player &)>{});
 
         Application::writeTextSmall(
                 "« Back",
@@ -1206,11 +1458,11 @@ void Application::changeTeamScreen(bool attachClickCallbacks) {
         writeClubMenu("CHOOSE CLUB", attachClickCallbacks);
 
     } else {
-        struct gameb::club &club = get_club(selectedClub);
+        ClubRecord &club = getClub(selectedClub);
         char clubText[34];
         snprintf(clubText, sizeof(clubText), "Club changed to %16.16s", club.name);
 
-        change_club(selectedClub, settings.gamePath.c_str(), 0);
+        changeClub(selectedClub, settings.gamePath.c_str(), 0);
         Application::writeTextSmall(clubText, 8, nullptr, 0);
 
         Application::writeTextSmall(
@@ -1237,14 +1489,14 @@ void Application::writeClubMenu(const char *heading, bool attachClickCallbacks) 
     std::vector<int> clubs{};
 
     for (int i = 0; i < 114; ++i) {
-        struct gameb::club &club = get_club(i);
-        if (club.league == division_hex[selectedDivision]) {
+        ClubRecord &club = getClub(i);
+        if (club.league == divisionHex[selectedDivision]) {
             clubs.push_back(i);
         }
     }
 
     std::sort(clubs.begin(), clubs.end(), [](int a, int b) {
-        return strcmp(get_club(a).name, get_club(b).name) < 0;
+        return strcmp(getClub(a).name, getClub(b).name) < 0;
     });
 
     for (auto club_idx: clubs) {
@@ -1254,7 +1506,7 @@ void Application::writeClubMenu(const char *heading, bool attachClickCallbacks) 
         }
 
         char clubName[17];
-        snprintf(clubName, sizeof(clubName), "%16.16s", get_club(club_idx).name);
+        snprintf(clubName, sizeof(clubName), "%16.16s", getClub(club_idx).name);
 
         writeTextSmall(
                 clubName,
@@ -1290,9 +1542,9 @@ void Application::writeClubMenu(const char *heading, bool attachClickCallbacks) 
 void Application::writeDivisionsMenu(const char *heading, bool attachClickCallbacks) {
     writeSubHeader(heading, nullptr);
 
-    for (size_t i = 0; i < std::size(division); i++) {
+    for (size_t i = 0; i < std::size(divisionNames); i++) {
         writeTextSmall(
-                division[i],
+                divisionNames[i],
                 i + 3,
                 attachClickCallbacks
                 ? std::function<void(void)>{ [this, i] {
@@ -1310,17 +1562,17 @@ void Application::writeDivisionsMenu(const char *heading, bool attachClickCallba
 void Application::convertCoachScreen([[maybe_unused]] bool attachClickCallbacks) {
     writeHeader("CONVERT PLAYER TO COACH", nullptr);
 
-    std::map<int8_t, struct gamec::player> validPlayers;
+    std::map<int8_t, PlayerRecord> validPlayers;
 
-    struct gamea::manager &manager = gamea.manager[0];
-    struct gameb::club &club = get_club(gamea.manager[0].club_idx);
+    struct gamea::ManagerRecord &manager = gameData.manager[0];
+    ClubRecord &club = getClub(gameData.manager[0].club_idx);
 
     for (int8_t i = 0; i < 24; ++i) {
         if (club.player_index[i] == -1) {
             continue;
         }
 
-        struct gamec::player &p = get_player(club.player_index[i]);
+        PlayerRecord &p = getPlayer(club.player_index[i]);
 
         if (p.age >= 29) {
             validPlayers[i] = p;
@@ -1341,21 +1593,21 @@ void Application::convertCoachScreen([[maybe_unused]] bool attachClickCallbacks)
 
     for (auto& pair : validPlayers) {  // Avoid structured bindings
         int8_t playerIdx = pair.first;
-        struct gamec::player player = pair.second;
+        PlayerRecord player = pair.second;
         char playerRow[74];
-        int8_t playerRating = determine_player_rating(player);
+        int8_t playerRating = determinePlayerRating(player);
         snprintf(playerRow, sizeof(playerRow),
                  "%1c %12.12s %2.2d %2.2d %2.2d %2.2d %2.2d %2.2d %2.2d %1.1s %1.1d %1.1d %2.2d %5d %-12.12s",
-                 determine_player_type(player), player.name, player.hn,
+                 determinePlayerType(player), player.name, player.hn,
                  player.tk, player.ps, player.sh, player.hd, player.cr,
-                 player.ft, foot_short[player.foot], player.morl, player.aggr,
-                 player.age, player.wage, rating[(playerRating - (playerRating % 5)) / 5]);
+                 player.ft, footShortLabels[player.foot], player.morl, player.aggr,
+                 player.age, player.wage, ratingLabels[(playerRating - (playerRating % 5)) / 5]);
 
         auto clickCallback = [&, playerIdx]() {
             Application::convertPlayerToCoach(manager, club, playerIdx);
         };
 
-        writePlayer(playerRow, determine_player_type(player), textLine++, attachClickCallbacks ? clickCallback : std::function<void(void)>{});
+        writePlayer(playerRow, determinePlayerType(player), textLine++, attachClickCallbacks ? clickCallback : std::function<void(void)>{});
     }
 
     for (int i = textLine; i <= 27; i++) {
@@ -1377,8 +1629,8 @@ void Application::telephoneScreen(bool attachClickCallbacks) {
     std::vector<TelephoneMenuItem> menuItems = {
             {"ADVERTISE FOR FANS               (£25,000)", 3, [this] {
                 resetTextBlocks();
-                struct gamea::manager &manager = gamea.manager[0];
-                struct gameb::club &club = get_club(manager.club_idx);
+                struct gamea::ManagerRecord &manager = gameData.manager[0];
+                ClubRecord &club = getClub(manager.club_idx);
 
                 int fandomIncreasePercent = 3 + std::rand() % (7 - 3 + 1);
                 club.seating_avg = std::min(club.seating_avg * (1.0 + (fandomIncreasePercent / 100.0)), static_cast<double>(club.seating_max));
@@ -1390,11 +1642,11 @@ void Application::telephoneScreen(bool attachClickCallbacks) {
             }},
             {"ENTERTAIN TEAM                    (£5,000)", 4, [this] {
                 resetTextBlocks();
-                struct gamea::manager &manager = gamea.manager[0];
-                struct gameb::club &club = get_club(manager.club_idx);
+                struct gamea::ManagerRecord &manager = gameData.manager[0];
+                ClubRecord &club = getClub(manager.club_idx);
 
                 for (int i = 0; i < 24; ++i) {
-                    struct gamec::player &player = get_player(club.player_index[i]);
+                    PlayerRecord &player = getPlayer(club.player_index[i]);
                     player.morl = 9;
                 }
 
@@ -1405,11 +1657,11 @@ void Application::telephoneScreen(bool attachClickCallbacks) {
             }},
             {"ARRANGE SMALL TRAINING CAMP     (£500,000)", 5, [this] {
                 resetTextBlocks();
-                struct gamea::manager &manager = gamea.manager[0];
-                struct gameb::club &club = get_club(manager.club_idx);
+                struct gamea::ManagerRecord &manager = gameData.manager[0];
+                ClubRecord &club = getClub(manager.club_idx);
 
                 for (int i = 0; i < 24; ++i) {
-                    struct gamec::player &player = get_player(club.player_index[i]);
+                    PlayerRecord &player = getPlayer(club.player_index[i]);
                     player.hn = std::min(player.hn + std::rand() % 2, 99);
                     player.tk = std::min(player.tk + std::rand() % 2, 99);
                     player.ps = std::min(player.ps + std::rand() % 2, 99);
@@ -1428,11 +1680,11 @@ void Application::telephoneScreen(bool attachClickCallbacks) {
             }},
             {"ARRANGE MEDIUM TRAINING CAMP  (£1,000,000)", 6, [this] {
                 resetTextBlocks();
-                struct gamea::manager &manager = gamea.manager[0];
-                struct gameb::club &club = get_club(manager.club_idx);
+                struct gamea::ManagerRecord &manager = gameData.manager[0];
+                ClubRecord &club = getClub(manager.club_idx);
 
                 for (int i = 0; i < 24; ++i) {
-                    struct gamec::player &player = get_player(club.player_index[i]);
+                    PlayerRecord &player = getPlayer(club.player_index[i]);
 
                     player.hn += std::rand() % 4;
                     player.hn = player.hn > 99 ? 99 : player.hn;
@@ -1459,11 +1711,11 @@ void Application::telephoneScreen(bool attachClickCallbacks) {
             }},
             {"ARRANGE LARGE TRAINING CAMP   (£2,000,000)", 7, [this] {
                 resetTextBlocks();
-                struct gamea::manager &manager = gamea.manager[0];
-                struct gameb::club &club = get_club(manager.club_idx);
+                struct gamea::ManagerRecord &manager = gameData.manager[0];
+                ClubRecord &club = getClub(manager.club_idx);
 
                 for (int i = 0; i < 24; ++i) {
-                    struct gamec::player &player = get_player(club.player_index[i]);
+                    PlayerRecord &player = getPlayer(club.player_index[i]);
                     player.hn = std::min(player.hn + std::rand() % 8, 99);
                     player.tk = std::min(player.tk + std::rand() % 8, 99);
                     player.ps = std::min(player.ps + std::rand() % 8, 99);
@@ -1482,12 +1734,12 @@ void Application::telephoneScreen(bool attachClickCallbacks) {
             }},
             {"APPEAL RED CARD                  (£10,000)", 8, [this] {
                 resetTextBlocks();
-                struct gamea::manager &manager = gamea.manager[0];
-                struct gameb::club &club = get_club(manager.club_idx);
+                struct gamea::ManagerRecord &manager = gameData.manager[0];
+                ClubRecord &club = getClub(manager.club_idx);
                 std::string result = "No banned player found";
 
                 for (int i = 0; i < 24; ++i) {
-                    struct gamec::player &player = get_player(club.player_index[i]);
+                    PlayerRecord &player = getPlayer(club.player_index[i]);
                     if (player.period > 0 && player.period_type == 0) {
                         if (std::rand() % 2 == 0) {
                             player.period = 0;
@@ -1504,8 +1756,8 @@ void Application::telephoneScreen(bool attachClickCallbacks) {
             }},
             {"BUILD NEW 25k SEAT STADIUM    (£5,000,000)", 9, [this] {
                 resetTextBlocks();
-                struct gamea::manager &manager = gamea.manager[0];
-                struct gameb::club &club = get_club(manager.club_idx);
+                struct gamea::ManagerRecord &manager = gameData.manager[0];
+                ClubRecord &club = getClub(manager.club_idx);
 
                 int currentStadiumValue = calculateStadiumValue(manager);
 
@@ -1540,8 +1792,8 @@ void Application::telephoneScreen(bool attachClickCallbacks) {
             }},
             {"BUILD NEW 50k SEAT STADIUM   (£10,000,000)", 10, [this] {
                 resetTextBlocks();
-                struct gamea::manager &manager = gamea.manager[0];
-                struct gameb::club &club = get_club(manager.club_idx);
+                struct gamea::ManagerRecord &manager = gameData.manager[0];
+                ClubRecord &club = getClub(manager.club_idx);
 
                 int currentStadiumValue = calculateStadiumValue(manager);
                 club.seating_max = 50000;
@@ -1575,8 +1827,8 @@ void Application::telephoneScreen(bool attachClickCallbacks) {
             }},
             {"BUILD NEW 100k SEAT STADIUM  (£15,000,000)", 11, [this] {
                 resetTextBlocks();
-                struct gamea::manager &manager = gamea.manager[0];
-                struct gameb::club &club = get_club(manager.club_idx);
+                struct gamea::ManagerRecord &manager = gameData.manager[0];
+                ClubRecord &club = getClub(manager.club_idx);
 
                 int currentStadiumValue = calculateStadiumValue(manager);
 
@@ -1622,7 +1874,7 @@ void Application::telephoneScreen(bool attachClickCallbacks) {
     }
 }
 
-int Application::calculateStadiumValue(struct gamea::manager &manager) {
+int Application::calculateStadiumValue(struct gamea::ManagerRecord &manager) {
 
     int total = 0;
 
@@ -1759,8 +2011,8 @@ void Application::savePrefs() {
 }
 
 void Application::drawTopDetails() {
-    struct gamea::manager &manager = gamea.manager[0];
-    struct gameb::club &club = get_club(manager.club_idx);
+    struct gamea::ManagerRecord &manager = gameData.manager[0];
+    ClubRecord &club = getClub(manager.club_idx);
 
     char line1[55];
 
@@ -1771,7 +2023,7 @@ void Application::drawTopDetails() {
     snprintf(clubName, sizeof(clubName), "%16.16s", club.name);
 
     char divisionName[18];
-    snprintf(divisionName, sizeof(divisionName), "%17.17s", division[manager.division]);
+    snprintf(divisionName, sizeof(divisionName), "%17.17s", divisionNames[manager.division]);
 
     snprintf(line1, sizeof(line1), "%s %s %s", managerName, clubName, divisionName);
 
@@ -1822,14 +2074,14 @@ void Application::resetTextBlocks() {
 
 bool Application::backupSaveFile(int gameNumber) {
     for (char c = 'A'; c <= 'C'; ++c) {
-        std::filesystem::path saveGamePath = construct_save_file_path(settings.gamePath, gameNumber, c);
+        std::filesystem::path saveGamePath = constructSaveFilePath(settings.gamePath, gameNumber, c);
 
         try {
             if (!std::filesystem::exists(saveGamePath)) {
                 return true;
             }
 
-            std::filesystem::path backupPath = construct_saves_folder_path(settings.gamePath) / BACKUP_SAVE_PATH;
+            std::filesystem::path backupPath = constructSavesFolderPath(settings.gamePath) / BACKUP_SAVE_PATH;
 
             if (!std::filesystem::exists(backupPath)) {
                 if (!std::filesystem::create_directories(backupPath)) {
@@ -1849,18 +2101,18 @@ bool Application::backupSaveFile(int gameNumber) {
     return true;
 }
 
-void Application::convertPlayerToCoach(struct gamea::manager &manager, struct gameb::club &club, int8_t clubPlayerIdx) {
+void Application::convertPlayerToCoach(struct gamea::ManagerRecord &manager, ClubRecord &club, int8_t clubPlayerIdx) {
 
-    struct gamec::player &player = get_player(club.player_index[clubPlayerIdx]);
+    PlayerRecord &player = getPlayer(club.player_index[clubPlayerIdx]);
 
     std::unordered_map<char, int> playerTypeToEmployeePosition = {
             {'G', 8}, {'D', 9}, {'M', 10}, {'A', 11}
     };
 
-    char playerType = determine_player_type(player);
-    int8_t playerRating = determine_player_rating(player);
+    char playerType = determinePlayerType(player);
+    int8_t playerRating = determinePlayerRating(player);
 
-    struct gamea::manager::employee &employee = manager.employee[playerTypeToEmployeePosition[playerType]];
+    struct gamea::ManagerRecord::employee &employee = manager.employee[playerTypeToEmployeePosition[playerType]];
     strncpy(employee.name, player.name, 12);
     employee.skill = playerRating;
     employee.age = 0;
@@ -1892,7 +2144,7 @@ void Application::convertPlayerToCoach(struct gamea::manager &manager, struct ga
 
     club.player_index[clubPlayerIdx] = -1;
 
-    struct gameb::club &new_club = get_club(92 + (std::rand() % (113 - 92 + 1)));
+    ClubRecord &new_club = getClub(92 + (std::rand() % (113 - 92 + 1)));
 
     new_club.player_index[23] = clubPlayerIdx;
 

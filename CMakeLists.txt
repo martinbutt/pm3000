@@ -12,8 +12,7 @@ add_executable(${PROJECT_NAME} ${SOURCES}
         external/nativefiledialog-extended/src/include/nfd.h
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE include)
-target_include_directories(${PROJECT_NAME} PRIVATE include)
+target_include_directories(${PROJECT_NAME} PRIVATE include src)
 
 target_compile_options(${PROJECT_NAME} PRIVATE $<$<C_COMPILER_ID:MSVC>:/W4 /WX>)
 target_compile_options(${PROJECT_NAME} PRIVATE $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -pedantic>)
@@ -32,10 +31,3 @@ file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
 # Add nfd
 add_subdirectory(external/nativefiledialog-extended)
 target_link_libraries(${PROJECT_NAME} nfd)
-
-# Add PM3
-# Include the pm3 library
-add_subdirectory(external/pm3 ${CMAKE_CURRENT_BINARY_DIR}/pm3_build)
-
-# Link pm3lib from the pm3 project
-target_link_libraries(pm3000 pm3lib)
