@@ -52,6 +52,18 @@ make
 ./pm3000
 ```
 
+### Tests
+
+After configuring, you can build and run the lightweight unit tests (currently covering PM3 utility pricing logic):
+
+```sh
+# From the repo root (after cmake ..)
+cmake --build build --target pm3_utils_tests
+cd build && ctest --output-on-failure
+```
+
+Add more cases under `tests/` as you extend the utilities.
+
 ## Acknowledgements
 Special thanks to [@eb4x](https://www.github.com/eb4x) for the https://github.com/eb4x/pm3 project. PM3000 would not exist without it.
 

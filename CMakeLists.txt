@@ -31,3 +31,10 @@ file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
 # Add nfd
 add_subdirectory(external/nativefiledialog-extended)
 target_link_libraries(${PROJECT_NAME} nfd)
+
+enable_testing()
+add_executable(pm3_utils_tests tests/pm3_utils_tests.cpp)
+target_include_directories(pm3_utils_tests PRIVATE src include)
+target_sources(pm3_utils_tests PRIVATE src/pm3_utils.cpp)
+target_link_libraries(pm3_utils_tests SDL2::Main SDL2::Image SDL2::TTF nfd)
+add_test(NAME pm3_utils_tests COMMAND pm3_utils_tests)

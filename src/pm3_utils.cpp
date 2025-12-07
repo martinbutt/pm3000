@@ -6,6 +6,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <cmath>
 #include <stdexcept>
 #include <string>
 
@@ -36,6 +37,50 @@ PlayerRecord& getPlayer(int16_t idx) {
     return playerData.player[idx];
 }
 
+static double computeRoleRating(char role, const PlayerRecord &p) {
+    auto clamp = [](double v) { return std::clamp(v, 0.0, 99.0); };
+    double rating = 0.0;
+    switch (role) {
+        case 'G': { // Keeper: handling heavy, heading/control secondary, some tackling/passing
+            rating = 0.50 * p.hn +
+                     0.15 * p.hd +
+                     0.15 * p.cr +
+                     0.10 * p.tk +
+                     0.05 * p.ps +
+                     0.05 * p.sh;
+            break;
+        }
+        case 'D': { // Defender: tackling first, then passing, heading, control; aggression helps slightly
+            rating = 0.40 * p.tk +
+                     0.15 * p.ps +
+                     0.15 * p.hd +
+                     0.15 * p.cr +
+                     0.05 * p.sh +
+                     0.10 * p.aggr;
+            break;
+        }
+        case 'M': { // Midfielder: passing primary, then tackling/shooting, control/heading, aggression minor
+            rating = 0.35 * p.ps +
+                     0.20 * p.tk +
+                     0.15 * p.sh +
+                     0.10 * p.hd +
+                     0.10 * p.cr +
+                     0.10 * p.aggr;
+            break;
+        }
+        default: { // Attacker: shooting primary, then passing/heading, control, minor tackling/aggression
+            rating = 0.35 * p.sh +
+                     0.20 * p.ps +
+                     0.15 * p.hd +
+                     0.10 * p.cr +
+                     0.10 * p.tk +
+                     0.10 * p.aggr;
+            break;
+        }
+    }
+    return clamp(rating);
+}
+
 char determinePlayerType(PlayerRecord &p) {
     if (p.hn > p.tk && p.hn > p.ps && p.hn > p.sh) {
         return 'G';
@@ -60,9 +105,46 @@ uint8_t determinePlayerRating(PlayerRecord &p) {
     return p.sh;
 }
 
+char determineValuationRole(const PlayerRecord &p) {
+    double gk = computeRoleRating('G', p);
+    double def = computeRoleRating('D', p);
+    double mid = computeRoleRating('M', p);
+    double att = computeRoleRating('A', p);
+
+    if (gk >= def && gk >= mid && gk >= att) {
+        return 'G';
+    } else if (def >= mid && def >= att) {
+        return 'D';
+    } else if (mid >= att) {
+        return 'M';
+    }
+    return 'A';
+}
+
+static int normalizedLeagueTier(const ClubRecord &club) {
+    // Handles both 0-based tier (0..4) and legacy hex division codes.
+    switch (club.league) {
+        case 0:
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+            return club.league;
+        default:
+            break;
+    }
+
+    for (size_t i = 0; i < divisionHex.size(); ++i) {
+        if (club.league == divisionHex[i]) {
+            return static_cast<int>(i);
+        }
+    }
+
+    return 4; // bottom tier fallback
+}
 int determinePlayerPrice(const PlayerRecord &player, const ClubRecord &club, int squadSlot) {
-    PlayerRecord &mutablePlayer = const_cast<PlayerRecord &>(player);
-    int rating = determinePlayerRating(mutablePlayer);
+    char valuationRole = determineValuationRole(player);
+    int rating = static_cast<int>(std::lround(computeRoleRating(valuationRole, player)));
     int age = player.age;
 
     double ageFactor = 1.0;
@@ -70,17 +152,18 @@ int determinePlayerPrice(const PlayerRecord &player, const ClubRecord &club, int
         ageFactor = 1.2;
     } else if (age < 28) {
         ageFactor = 1.1;
-    } else if (age > 35) {
+    } else if (age >= 35) {
         ageFactor = 0.7;
-    } else if (age > 32) {
-        ageFactor = 0.85;
+    } else if (age >= 33) {
+        ageFactor = 0.8;
+    } else if (age >= 30) {
+        ageFactor = 0.9;
     }
 
     double contractFactor = 0.9 + (player.contract * 0.05);
     int wageInfluence = std::max<int>(player.wage, 200) * 30;
 
-    // Rating-driven baseline sized to yield ~15-20m for 95-99 in top flight.
-    double baseValue = static_cast<double>(rating) * static_cast<double>(rating) * 1500.0;
+    double baseValue = static_cast<double>(rating) * static_cast<double>(rating) * 1200.0;
 
     // Importance based on relative quality in the squad.
     int importance = determinePlayerImportance(player, club);
@@ -101,16 +184,40 @@ int determinePlayerPrice(const PlayerRecord &player, const ClubRecord &club, int
     }
 
     // Division/league scaling (Premier -> Conference).
-    double divisionFactor = 1.0;
-    switch (club.league) {
+    int tier = normalizedLeagueTier(club);
+
+    double divisionFactor;
+    switch (tier) {
         case 0: divisionFactor = 1.0; break;
         case 1: divisionFactor = 0.2; break;    // next league ~20%
-        case 2: divisionFactor = 0.1; break;    // half again
+        case 2: divisionFactor = 0.12; break;    // half again (slightly reduced)
         case 3: divisionFactor = 0.075; break;  // 75% of previous
         default: divisionFactor = 0.0375; break; // half again
     }
 
-    double value = (baseValue * importanceFactor * squadFactor * divisionFactor + wageInfluence) * ageFactor * contractFactor * 10;
+    double roleMultiplier = 1.0;
+    switch (valuationRole) {
+        case 'D': roleMultiplier = 0.4; break;
+        case 'M': roleMultiplier = 0.8; break;
+        case 'A': roleMultiplier = 1.05; break;
+        default: roleMultiplier = 1.0; break;
+    }
+    if (valuationRole == 'D' && tier >= 1) {
+        roleMultiplier *= (1.0 + 0.2 * std::min<int>(tier, 3));
+    }
+
+    double scaleFactor = 1.6; // Normalizes toward realistic modern-era transfer fees.
+    double value = (baseValue * importanceFactor * squadFactor * divisionFactor + wageInfluence) * ageFactor * contractFactor * scaleFactor * roleMultiplier;
+
+    double leagueFloor = 0.0;
+    switch (tier) {
+        case 0: leagueFloor = 500000; break;
+        case 1: leagueFloor = 250000; break;
+        case 2: leagueFloor = 150000; break;
+        default: leagueFloor = 100000; break;
+    }
+
+    value = std::max(value, leagueFloor);
     return static_cast<int>(std::max<double>(value, wageInfluence));
 }
 

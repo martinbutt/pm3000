@@ -31,6 +31,7 @@ PlayerRecord& getPlayer(int16_t idx);
 
 char determinePlayerType(PlayerRecord &player);
 uint8_t determinePlayerRating(PlayerRecord &player);
+char determineValuationRole(const PlayerRecord &player);
 int determinePlayerPrice(const PlayerRecord &player, const ClubRecord &club, int squadSlot);
 int determinePlayerImportance(const PlayerRecord &player, const ClubRecord &club);
 
