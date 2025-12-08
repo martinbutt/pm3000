@@ -1,41 +1,17 @@
-#include "pm3_utils.hh"
+// Domain/gameplay helpers for transfers and club utilities.
+#include "game_utils.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <cmath>
-#include <stdexcept>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
-gamea gameData;
-gameb clubData;
-gamec playerData;
-saves savesDir;
-prefs preferences;
-
-char *gameaPath = nullptr;
-char *gamebPath = nullptr;
-char *gamecPath = nullptr;
-char *savesPath = nullptr;
-char *prefsPath = nullptr;
-FILE *gameaFile = nullptr;
-FILE *gamebFile = nullptr;
-FILE *gamecFile = nullptr;
-FILE *savesFile = nullptr;
-FILE *prefsFile = nullptr;
-
-static std::string gPm3LastError;
-
-ClubRecord& getClub(int idx) {
-    return clubData.club[idx];
-}
-
-PlayerRecord& getPlayer(int16_t idx) {
-    return playerData.player[idx];
-}
+#include "pm3_data.h"
+#include "io.h"
 
 static double computeRoleRating(char role, const PlayerRecord &p) {
     auto clamp = [](double v) { return std::clamp(v, 0.0, 99.0); };
@@ -142,6 +118,7 @@ static int normalizedLeagueTier(const ClubRecord &club) {
 
     return 4; // bottom tier fallback
 }
+
 int determinePlayerPrice(const PlayerRecord &player, const ClubRecord &club, int squadSlot) {
     char valuationRole = determineValuationRole(player);
     int rating = static_cast<int>(std::lround(computeRoleRating(valuationRole, player)));
@@ -424,7 +401,7 @@ void changeClub(int16_t newClubIdx, const char* gamePath, int player) {
     std::strncpy(clubData.club[newClubIdx].manager, clubData.club[oldClubIdx].manager, 16);
 
     gameb defaultClubData{};
-    loadDefaultClubdata(gamePath, defaultClubData);
+    io::loadDefaultClubdata(gamePath, defaultClubData);
     std::strncpy(clubData.club[oldClubIdx].manager, defaultClubData.club[oldClubIdx].manager, 16);
 }
 
@@ -473,123 +450,208 @@ void levelAggression() {
     }
 }
 
-template <typename T>
-static bool load_binary_file(const std::string &filepath, T &data) {
-    std::ifstream file(filepath, std::ios::binary);
-    if (!file) {
-        gPm3LastError = "Missing file: " + filepath;
-        return false;
-    }
-    file.read(reinterpret_cast<char*>(&data), sizeof(T));
-    return true;
-}
+namespace game_utils {
 
-template <typename T>
-static void save_binary_file(const std::string &filepath, const T &data) {
-    std::ofstream file(filepath, std::ios::binary);
-    if (!file) {
-        throw std::runtime_error("Could not open file for writing: " + filepath);
-    }
-    file.write(reinterpret_cast<const char*>(&data), sizeof(T));
-}
+OfferResponse assessOffer(const club_player &playerInfo, int offerAmount, int currentGame) {
+    OfferResponse result{false, ""};
 
-void loadBinaries(int game_nr, const std::string &game_path, gamea &game_data, gameb &club_data, gamec &player_data) {
-    load_binary_file(constructSaveFilePath(game_path, game_nr, 'A'), game_data);
-    load_binary_file(constructSaveFilePath(game_path, game_nr, 'B'), club_data);
-    load_binary_file(constructSaveFilePath(game_path, game_nr, 'C'), player_data);
-}
-
-void loadDefaultGamedata(const std::string &game_path, gamea &game_data) {
-    load_binary_file(constructGameFilePath(game_path, std::string{kGameDataFile}), game_data);
-}
-
-void loadDefaultClubdata(const std::string &game_path, gameb &club_data) {
-    load_binary_file(constructGameFilePath(game_path, std::string{kClubDataFile}), club_data);
-}
-
-void loadDefaultPlaydata(const std::string &game_path, gamec &player_data) {
-    load_binary_file(constructGameFilePath(game_path, std::string{kPlayDataFile}), player_data);
-}
-
-bool loadMetadata(const std::string &game_path, saves &saves_dir_data, prefs &prefs_data) {
-    Pm3GameType game_type = getPm3GameType(game_path.c_str());
-    const char* saves_folder = getSavesFolder(game_type);
-    if (saves_folder == nullptr) {
-        gPm3LastError = "Invalid PM3 folder: could not find PM3 executable in " + game_path;
-        return false;
+    if (offerAmount <= 0) {
+        snprintf(result.message, sizeof(result.message), "Enter a numeric offer");
+        return result;
     }
 
-    std::filesystem::path full_path = std::filesystem::path(game_path) / saves_folder;
-    bool saves_ok = load_binary_file(full_path / std::string{kSavesDirFile}, saves_dir_data);
-    bool prefs_ok = load_binary_file(full_path / std::string{kPrefsFile}, prefs_data);
-
-    if (!saves_ok || !prefs_ok) {
-        gPm3LastError = "Could not load PM3 metadata (SAVES.DIR/PREFS) in " + full_path.string() + ". "
-                           "Set the PM3 folder in Settings.";
-        return false;
+    if (currentGame == 0) {
+        snprintf(result.message, sizeof(result.message), "Load a game before bidding");
+        return result;
     }
 
-    gPm3LastError.clear();
-    return true;
-}
-
-void saveBinaries(int game_nr, const std::string &game_path, gamea &game_data, gameb &club_data, gamec &player_data) {
-    save_binary_file(constructSaveFilePath(game_path, game_nr, 'A'), game_data);
-    save_binary_file(constructSaveFilePath(game_path, game_nr, 'B'), club_data);
-    save_binary_file(constructSaveFilePath(game_path, game_nr, 'C'), player_data);
-}
-
-void saveMetadata(const std::string &game_path, saves &saves_dir_data, prefs &prefs_data) {
-    save_binary_file(constructGameFilePath(game_path, std::string{kSavesDirFile}), saves_dir_data);
-    save_binary_file(constructGameFilePath(game_path, std::string{kPrefsFile}), prefs_data);
-}
-
-void updateMetadata(int game_nr) {
-    savesDir.game[game_nr - 1].turn = gameData.turn;
-    savesDir.game[game_nr - 1].year = gameData.year;
-
-    saveMetadata(std::filesystem::path(gameaPath).parent_path(), savesDir, preferences);
-}
-
-std::filesystem::path constructSavesFolderPath(const std::string& game_path) {
-    Pm3GameType game_type = getPm3GameType(game_path.c_str());
-    return std::filesystem::path(game_path) / getSavesFolder(game_type);
-}
-
-std::filesystem::path constructSaveFilePath(const std::string& game_path, int gameNumber, char gameLetter) {
-    return constructSavesFolderPath(game_path) / (std::string{kGameFilePrefix} + std::to_string(gameNumber) + gameLetter);
-}
-
-std::filesystem::path constructGameFilePath(const std::string &game_path, const std::string &file_name) {
-    return std::filesystem::path(game_path) / file_name;
-}
-
-Pm3GameType getPm3GameType(const char *game_path) {
-    std::filesystem::path full_path;
-    full_path = std::filesystem::path(game_path) / kExeStandardFilename;
-    if (std::filesystem::exists(full_path)) {
-        return Pm3GameType::Standard;
+    int16_t playerIdx = findPlayerIndex(playerInfo.player);
+    if (playerIdx == -1) {
+        snprintf(result.message, sizeof(result.message), "Player not found in save");
+        return result;
     }
 
-    full_path = std::filesystem::path(game_path) / kExeDeluxeFilename;
-    if (std::filesystem::exists(full_path)) {
-        return Pm3GameType::Deluxe;
+    int fromClubIdx = findClubIndexForPlayer(playerIdx);
+    if (fromClubIdx == -1) {
+        snprintf(result.message, sizeof(result.message), "Unable to locate player's club");
+        return result;
     }
 
-    return Pm3GameType::Unknown;
-}
-
-const char* getSavesFolder(Pm3GameType game_type) {
-    switch (game_type) {
-        case Pm3GameType::Standard:
-            return kStandardSavesPath.data();
-        case Pm3GameType::Deluxe:
-            return kDeluxeSavesPath.data();
-        default:
-            return nullptr;
+    int myClubIdx = gameData.manager[0].club_idx;
+    if (fromClubIdx == myClubIdx) {
+        snprintf(result.message, sizeof(result.message), "Player already in your squad");
+        return result;
     }
+
+    int squadSlot = -1;
+    const ClubRecord &sourceClub = playerInfo.club;
+    for (int i = 0; i < 24; ++i) {
+        if (sourceClub.player_index[i] == -1) {
+            continue;
+        }
+        if (std::memcmp(&playerData.player[sourceClub.player_index[i]], &playerInfo.player, sizeof(PlayerRecord)) == 0) {
+            squadSlot = i;
+            break;
+        }
+    }
+
+    int basePrice = determinePlayerPrice(playerInfo.player, playerInfo.club, squadSlot);
+    int importance = std::max(determinePlayerImportance(playerInfo.player, playerInfo.club), 1);
+    int askingPrice = static_cast<int>(basePrice * (1.0 + (importance - 1) * 0.15));
+
+    if (offerAmount < askingPrice) {
+        std::string priceText = formatCurrency(askingPrice);
+        snprintf(result.message, sizeof(result.message), "Offer rejected - needs about £%s", priceText.c_str());
+        return result;
+    }
+
+    ClubRecord &myClub = getClub(myClubIdx);
+    if (findEmptySlot(myClub) == -1) {
+        snprintf(result.message, sizeof(result.message), "No free slot in your squad");
+        return result;
+    }
+
+    completeTransfer(playerIdx, fromClubIdx, myClubIdx, offerAmount);
+
+    snprintf(result.message, sizeof(result.message), "Offer accepted - %12.12s signed", playerInfo.player.name);
+    result.accepted = true;
+    return result;
 }
 
-const std::string& pm3LastError() {
-    return gPm3LastError;
+void beginOffer(InputHandler &input, char *footer, size_t footerSize, const club_player &playerInfo, int currentGame) {
+    input.resetKeyPressCallbacks();
+    input.startReadingTextInput([&input, footer, footerSize, playerInfo] {
+        const char *buffer = input.getTextInput();
+        std::string formattedAmount = std::strlen(buffer) ? formatCurrency(std::atoi(buffer)) : "..........";
+        snprintf(footer, footerSize, "           Offer amount for %12.12s £%13.13s",
+                 playerInfo.player.name, formattedAmount.c_str());
+    });
+
+    snprintf(footer, footerSize, "           Offer amount for %12.12s £..........", playerInfo.player.name);
+
+    input.addKeyPressCallback(SDLK_RETURN, [&input, footer, footerSize, playerInfo, currentGame] {
+        int offer = std::atoi(input.getTextInput());
+        auto response = assessOffer(playerInfo, offer, currentGame);
+        snprintf(footer, footerSize, "           %.58s", response.message);
+        input.resetKeyPressCallbacks();
+        input.endReadingTextInput();
+    });
 }
+
+int16_t findPlayerIndex(const PlayerRecord &player) {
+    for (int16_t idx = 0; idx < 3932; ++idx) {
+        if (std::memcmp(&getPlayer(idx), &player, sizeof(PlayerRecord)) == 0) {
+            return idx;
+        }
+    }
+
+    return -1;
+}
+
+int findClubIndexForPlayer(int16_t playerIdx) {
+    for (int clubIdx = 0; clubIdx < 114; ++clubIdx) {
+        ClubRecord &club = getClub(clubIdx);
+        for (int slot = 0; slot < 24; ++slot) {
+            if (club.player_index[slot] == playerIdx) {
+                return clubIdx;
+            }
+        }
+    }
+
+    return -1;
+}
+
+int findEmptySlot(ClubRecord &club) {
+    for (int slot = 0; slot < 24; ++slot) {
+        if (club.player_index[slot] == -1) {
+            return slot;
+        }
+    }
+    return -1;
+}
+
+void completeTransfer(int16_t playerIdx, int fromClubIdx, int toClubIdx, int offerAmount) {
+    ClubRecord &fromClub = getClub(fromClubIdx);
+    ClubRecord &toClub = getClub(toClubIdx);
+
+    for (int slot = 0; slot < 24; ++slot) {
+        if (fromClub.player_index[slot] == playerIdx) {
+            fromClub.player_index[slot] = -1;
+            break;
+        }
+    }
+
+    int destSlot = findEmptySlot(toClub);
+    fromClub.bank_account += offerAmount;
+    toClub.bank_account -= offerAmount;
+
+    if (destSlot != -1) {
+        toClub.player_index[destSlot] = playerIdx;
+    }
+
+    PlayerRecord &player = getPlayer(playerIdx);
+    player.contract = std::max<uint8_t>(player.contract, static_cast<uint8_t>(2));
+    player.morl = std::max<uint8_t>(player.morl, static_cast<uint8_t>(6));
+}
+
+void convertPlayerToCoach(struct gamea::ManagerRecord &manager, ClubRecord &club, int8_t clubPlayerIdx, char *footer,
+                          size_t footerSize) {
+    PlayerRecord &player = getPlayer(club.player_index[clubPlayerIdx]);
+
+    std::unordered_map<char, int> playerTypeToEmployeePosition = {
+            {'G', 8}, {'D', 9}, {'M', 10}, {'A', 11}
+    };
+
+    char playerType = determinePlayerType(player);
+    int8_t playerRating = determinePlayerRating(player);
+
+    struct gamea::ManagerRecord::employee &employee = manager.employee[playerTypeToEmployeePosition[playerType]];
+    strncpy(employee.name, player.name, 12);
+    employee.skill = playerRating;
+    employee.age = 0;
+
+    player.hn = player.hn / 2;
+    player.tk = player.tk / 2;
+    player.ps = player.ps / 2;
+    player.sh = player.sh / 2;
+    player.hd = player.hd / 2;
+    player.cr = player.cr / 2;
+
+    player.morl = 5;
+    player.aggr = 1 + (std::rand() % 9);
+    player.ins = 0;
+    player.age = 16 + (std::rand() % 4);
+    player.foot = (std::rand() % 2);
+    player.dpts = 0;
+    player.played = 0;
+    player.scored = 0;
+    player.unk2 = 0;
+    player.wage = 50 + (std::rand() % 500);
+    player.ins_cost = 0;
+    player.period = 0;
+    player.period_type = 0;
+    player.contract = 1;
+    player.unk5 = 192;
+    player.u23 = 0;
+    player.u25 = 0;
+
+    club.player_index[clubPlayerIdx] = -1;
+
+    ClubRecord &new_club = getClub(92 + (std::rand() % (113 - 92 + 1)));
+
+    new_club.player_index[23] = clubPlayerIdx;
+
+    snprintf(footer, footerSize, "CONVERTED TO A COACH");
+}
+
+std::string formatCurrency(int amount) {
+    std::string text = std::to_string(amount);
+    int insertPosition = static_cast<int>(text.length()) - 3;
+    while (insertPosition > 0) {
+        text.insert(insertPosition, ",");
+        insertPosition -= 3;
+    }
+    return text;
+}
+
+} // namespace game_utils

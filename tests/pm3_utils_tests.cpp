@@ -4,12 +4,50 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <type_traits>
 
-#include "pm3_utils.hh"
+#include "game_utils.h"
 
 namespace {
+static_assert(std::is_standard_layout_v<gamea>, "gamea must stay standard layout");
+static_assert(std::is_standard_layout_v<gameb>, "gameb must stay standard layout");
+static_assert(std::is_standard_layout_v<gamec>, "gamec must stay standard layout");
+static_assert(std::is_standard_layout_v<ClubRecord>, "ClubRecord must stay standard layout");
+static_assert(std::is_standard_layout_v<PlayerRecord>, "PlayerRecord must stay standard layout");
+static_assert(sizeof(gamea) == 29554, "gamea size must match PM3 binary");
+static_assert(sizeof(gameb) == 139080, "gameb size must match PM3 binary");
+static_assert(sizeof(gamec) == 157280, "gamec size must match PM3 binary");
+static_assert(sizeof(ClubRecord) == 570, "ClubRecord size must match PM3 binary");
+static_assert(sizeof(PlayerRecord) == 40, "PlayerRecord size must match PM3 binary");
 
 int16_t gNextPlayerIdx = 0;
+bool gAllOk = true;
+
+void resetGlobals() {
+    std::memset(&playerData, 0, sizeof(playerData));
+    std::memset(&clubData, 0, sizeof(clubData));
+    std::memset(&gameData, 0, sizeof(gameData));
+    gNextPlayerIdx = 0;
+}
+
+template <typename T, typename U>
+bool checkEqual(const std::string &label, T lhs, U rhs) {
+    if (lhs != rhs) {
+        std::cerr << label << " expected " << rhs << " got " << lhs << "\n";
+        gAllOk = false;
+        return false;
+    }
+    return true;
+}
+
+bool checkTrue(const std::string &label, bool cond) {
+    if (!cond) {
+        std::cerr << "Check failed: " << label << "\n";
+        gAllOk = false;
+        return false;
+    }
+    return true;
+}
 
 int16_t addPlayer(int ratingValue, int age = 26, int contract = 3, int wage = 500) {
     PlayerRecord player{};
@@ -53,8 +91,7 @@ bool checkPrice(const std::string& label, int price, int low, int high) {
 } // namespace
 
 int main() {
-    std::memset(&playerData, 0, sizeof(playerData));
-    std::memset(&clubData, 0, sizeof(clubData));
+    resetGlobals();
 
     bool ok = true;
 
@@ -129,12 +166,6 @@ int main() {
     ClubRecord div3Club = makeClub(3, 18, div3Players);
     ok &= checkPrice("Div3 starter", determinePlayerPrice(playerData.player[div3Players[0]], div3Club, 0), 50'000, 800'000);
 
-    if (!ok) {
-        return 1;
-    }
-
-    std::cout << "All pm3_utils tests passed" << std::endl;
-
     // Load real-world samples from CSV (tests/pricing_samples.csv)
     std::ifstream csv("tests/pricing_samples.csv");
     if (!csv) {
@@ -160,9 +191,9 @@ int main() {
         while (std::getline(ss, field, ',')) {
             fields.push_back(field);
         }
-        if (fields.size() < 15) {
-            continue; // skip incomplete lines
-        }
+    if (fields.size() < 15) {
+        continue; // skip incomplete lines
+    }
 
         std::string playerName = fields[0];
         std::string roleStr = fields[1];
@@ -207,9 +238,12 @@ int main() {
     }
 
     if (!samplesOk) {
-        return 1;
+        gAllOk = false;
     }
 
-    std::cout << "All pricing sample checks passed" << std::endl;
-    return 0;
+    if (ok && gAllOk && samplesOk) {
+        std::cout << "All pm3_utils tests passed" << std::endl;
+        return 0;
+    }
+    return 1;
 }

@@ -105,46 +105,72 @@ inline constexpr std::array ratingLabels{
 };
 
 struct gamea {
-    union {
-        struct {
-            int16_t premier_league[22];
-            int16_t division_one[24];
-            int16_t division_two[24];
-            int16_t division_three[22];
-            int16_t conference_league[22];
-            int16_t misc[4];
-        } __attribute__ ((packed));
+    struct ClubIndexLeagues {
+        int16_t premier_league[22];
+        int16_t division_one[24];
+        int16_t division_two[24];
+        int16_t division_three[22];
+        int16_t conference_league[22];
+        int16_t misc[4];
+    } __attribute__ ((packed));
+
+    union ClubIndex {
+        ClubIndexLeagues leagues;
         int16_t all[118];
     } __attribute__ ((packed)) club_index;
 
-    union {
-        struct {
-            struct { int16_t club_idx; int16_t hx; int16_t hw; int16_t hd; int16_t hl; int16_t hf; int16_t ha; int16_t ax; int16_t aw; int16_t ad; int16_t al; int16_t af; int16_t aa; int16_t xx; } __attribute__ ((packed)) premier_league[22];
-            struct { int16_t club_idx; int16_t hx; int16_t hw; int16_t hd; int16_t hl; int16_t hf; int16_t ha; int16_t ax; int16_t aw; int16_t ad; int16_t al; int16_t af; int16_t aa; int16_t xx; } __attribute__ ((packed)) division_one[24];
-            struct { int16_t club_idx; int16_t hx; int16_t hw; int16_t hd; int16_t hl; int16_t hf; int16_t ha; int16_t ax; int16_t aw; int16_t ad; int16_t al; int16_t af; int16_t aa; int16_t xx; } __attribute__ ((packed)) division_two[24];
-            struct { int16_t club_idx; int16_t hx; int16_t hw; int16_t hd; int16_t hl; int16_t hf; int16_t ha; int16_t ax; int16_t aw; int16_t ad; int16_t al; int16_t af; int16_t aa; int16_t xx; } __attribute__ ((packed)) division_three[22];
-            struct { int16_t club_idx; int16_t hx; int16_t hw; int16_t hd; int16_t hl; int16_t hf; int16_t ha; int16_t ax; int16_t aw; int16_t ad; int16_t al; int16_t af; int16_t aa; int16_t xx; } __attribute__ ((packed)) conference_league[22];
-        } __attribute__ ((packed));
+    struct TableDivision {
+        int16_t club_idx;
+        int16_t hx;
+        int16_t hw;
+        int16_t hd;
+        int16_t hl;
+        int16_t hf;
+        int16_t ha;
+        int16_t ax;
+        int16_t aw;
+        int16_t ad;
+        int16_t al;
+        int16_t af;
+        int16_t aa;
+        int16_t xx;
+    } __attribute__ ((packed));
 
-        struct { int16_t club_idx; int16_t hx; int16_t hw; int16_t hd; int16_t hl; int16_t hf; int16_t ha;
-            int16_t ax; int16_t aw; int16_t ad; int16_t al; int16_t af; int16_t aa;
-            int16_t xx;
-        } __attribute__ ((packed)) all[114];
+    struct TableByLeague {
+        TableDivision premier_league[22];
+        TableDivision division_one[24];
+        TableDivision division_two[24];
+        TableDivision division_three[22];
+        TableDivision conference_league[22];
+    } __attribute__ ((packed));
+
+    union Table {
+        TableByLeague leagues;
+        TableDivision all[114];
     } __attribute__ ((packed)) table;
 
     uint16_t data000;
     uint16_t data001;
     uint32_t data002;
 
-    union {
-        struct {
-            struct { int16_t player_idx; int16_t club_idx; int8_t pl; int8_t sc; } __attribute__ ((packed)) premier_league[15];
-            struct { int16_t player_idx; int16_t club_idx; int8_t pl; int8_t sc; } __attribute__ ((packed)) division_one[15];
-            struct { int16_t player_idx; int16_t club_idx; int8_t pl; int8_t sc; } __attribute__ ((packed)) division_two[15];
-            struct { int16_t player_idx; int16_t club_idx; int8_t pl; int8_t sc; } __attribute__ ((packed)) division_three[15];
-            struct { int16_t player_idx; int16_t club_idx; int8_t pl; int8_t sc; } __attribute__ ((packed)) conference_league[15];
-        } __attribute__ ((packed));
-        struct { int16_t player_idx; int16_t club_idx; int8_t pl; int8_t sc; } __attribute__ ((packed)) all[75];
+    struct TopScorerEntry {
+        int16_t player_idx;
+        int16_t club_idx;
+        int8_t pl;
+        int8_t sc;
+    } __attribute__ ((packed));
+
+    struct TopScorersByLeague {
+        TopScorerEntry premier_league[15];
+        TopScorerEntry division_one[15];
+        TopScorerEntry division_two[15];
+        TopScorerEntry division_three[15];
+        TopScorerEntry conference_league[15];
+    } __attribute__ ((packed));
+
+    union TopScorers {
+        TopScorersByLeague leagues;
+        TopScorerEntry all[75];
     } __attribute__ ((packed)) top_scorers; //450
 
     uint16_t sorted_numbers[64];
@@ -157,18 +183,24 @@ struct gamea {
     } __attribute__ ((packed)) referee[64];
 
 
-    union cuppy {
-        struct {
-            struct { struct { int16_t idx; int16_t goals; int32_t audience; } __attribute__ ((packed)) club[2]; } __attribute__ ((packed)) the_fa_cup[36];
-            struct { struct { int16_t idx; int16_t goals; int32_t audience; } __attribute__ ((packed)) club[2]; } __attribute__ ((packed)) the_league_cup[28];
-            struct { struct { int16_t idx; int16_t goals; int32_t audience; } __attribute__ ((packed)) club[2]; } __attribute__ ((packed)) data090[4];
-            struct { struct { int16_t idx; int16_t goals; int32_t audience; } __attribute__ ((packed)) club[2]; } __attribute__ ((packed)) the_champions_cup[16];
-            struct { struct { int16_t idx; int16_t goals; int32_t audience; } __attribute__ ((packed)) club[2]; } __attribute__ ((packed)) data091[16];
-            struct { struct { int16_t idx; int16_t goals; int32_t audience; } __attribute__ ((packed)) club[2]; } __attribute__ ((packed)) the_cup_winners_cup[16];
-            struct { struct { int16_t idx; int16_t goals; int32_t audience; } __attribute__ ((packed)) club[2]; } __attribute__ ((packed)) the_uefa_cup[32];
-            struct { struct { int16_t idx; int16_t goals; int32_t audience; } __attribute__ ((packed)) club[2]; } __attribute__ ((packed)) the_charity_shield;
-        } __attribute__ ((packed));
-        struct cup_entry { struct { int16_t idx; int16_t goals; int32_t audience; } __attribute__ ((packed)) club[2]; } __attribute__ ((packed)) all[149];
+    struct CupEntry {
+        struct { int16_t idx; int16_t goals; int32_t audience; } __attribute__ ((packed)) club[2];
+    } __attribute__ ((packed));
+
+    struct CupCompetitions {
+        CupEntry the_fa_cup[36];
+        CupEntry the_league_cup[28];
+        CupEntry data090[4];
+        CupEntry the_champions_cup[16];
+        CupEntry data091[16];
+        CupEntry the_cup_winners_cup[16];
+        CupEntry the_uefa_cup[32];
+        CupEntry the_charity_shield;
+    } __attribute__ ((packed));
+
+    union Cups {
+        CupCompetitions competitions;
+        CupEntry all[149];
     } __attribute__ ((packed)) cuppy;
 
     uint8_t data095[2240];
@@ -186,11 +218,11 @@ struct gamea {
         int32_t club2_audience;
     } __attribute__ ((packed)) some_table[16]; // history?
 
-    union {
+    union LastResults {
         struct {
-            struct { struct { int16_t idx; int16_t goals; int32_t audience; } __attribute__ ((packed)) club[2]; } __attribute__ ((packed)) the_fa_cup[0];
-        };
-        struct { struct { int16_t idx; int16_t goals; int32_t audience; } __attribute__ ((packed)) club[2]; } __attribute__ ((packed)) all[57];
+            CupEntry the_fa_cup[57];
+        } __attribute__ ((packed)) cups;
+        CupEntry all[57];
     } __attribute__ ((packed)) last_results;
 
     struct {
@@ -598,30 +630,28 @@ struct ClubRecord {
     uint8_t misc005[3];
     uint8_t league;
 
-    struct timetable {
-        struct week {
-            struct day {
+    struct DayScore {
+        uint8_t home: 4;
+        uint8_t away: 4;
+    } __attribute__ ((packed));
 
-                uint8_t opponent_idx;
+    struct DayType {
+        uint8_t type: 5;
+        uint8_t game: 3;
+    } __attribute__ ((packed));
 
-                union {
-                    struct {
-                        uint8_t home: 4;
-                        uint8_t away: 4;
-                    } __attribute__ ((packed));
-                    int8_t result;
-                };
+    struct TimetableDay {
+        uint8_t opponent_idx;
+        union { DayScore score; int8_t result; } __attribute__ ((packed)) outcome;
+        union { DayType type; uint8_t b3; } __attribute__ ((packed)) meta;
+    } __attribute__ ((packed));
 
-                union {
-                    struct {
-                        uint8_t type: 5;
-                        uint8_t game: 3;
-                    } __attribute__ ((packed));
-                    uint8_t b3;
-                };
+    struct TimetableWeek {
+        TimetableDay day[3];
+    } __attribute__ ((packed));
 
-            } __attribute__ ((packed)) day[3];
-        } __attribute__ ((packed)) week[41];
+    struct Timetable {
+        TimetableWeek week[41];
         uint8_t end;
     } __attribute__ ((packed)) timetable;
 
