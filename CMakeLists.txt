@@ -123,7 +123,3 @@ target_include_directories(inspect_pm3_data PRIVATE src include)
 target_sources(inspect_pm3_data PRIVATE
         src/pm3_data.cpp)
 target_link_libraries(inspect_pm3_data SDL2::Main SDL2::Image SDL2::TTF nfd)
-
-add_executable(swap_club_indexes tools/swap_club_indexes.cpp)
-target_include_directories(swap_club_indexes PRIVATE src include)
-target_link_libraries(swap_club_indexes nfd)
