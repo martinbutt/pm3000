@@ -130,6 +130,20 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
     auto confirm = [this](const std::string &label, const std::function<void(void)> &action) {
         confirmTelephoneAction(context, label, action);
     };
+    auto showInsufficientFunds = [this]() {
+        context.resetTextBlocks();
+        context.setFooterLine("");
+        context.addTextBlock("You cannot afford that action right now.", 400, 75, 200,
+                             Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+    };
+    auto attemptSpend = [this, showInsufficientFunds](ClubRecord &club, int amount) -> bool {
+        if (amount > 0 && club.bank_account < amount) {
+            showInsufficientFunds();
+            return false;
+        }
+        club.bank_account -= amount;
+        return true;
+    };
     auto isTrainingCampWeek = []() {
         int currentWeek = static_cast<int>(gameData.turn) / 3 + 1;
         return currentWeek == 37;
@@ -142,28 +156,35 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
     };
 
     std::vector<TelephoneMenuItem> menuItems = {
-            {"ADVERTISE FOR FANS               (£25,000)", 3, [this, confirm] {
-                confirm("ADVERTISE FOR FANS", [this] {
+            {"ADVERTISE FOR FANS               (£25,000)", 3, [this, confirm, attemptSpend] {
+                confirm("ADVERTISE FOR FANS", [this, attemptSpend] {
                     context.resetTextBlocks();
                     context.setFooterLine("");
                     struct gamea::ManagerRecord &manager = gameData.manager[0];
                     ClubRecord &club = getClub(manager.club_idx);
 
+                    if (!attemptSpend(club, 25000)) {
+                        return;
+                    }
+
                     int fandomIncreasePercent = 3 + std::rand() % (7 - 3 + 1);
                     club.seating_avg = std::min(club.seating_avg * (1.0 + (fandomIncreasePercent / 100.0)), static_cast<double>(club.seating_max));
-                    club.bank_account -= 25000;
 
                     std::string result = "\"We'll certainly see our ticket sales increase after this!\" - Assistant Manager\n\n"
                                          "Fans increased by " + std::to_string(fandomIncreasePercent) + "%";
                     context.addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
                 });
             }},
-            {"ENTERTAIN TEAM                    (£5,000)", 4, [this, confirm] {
-                confirm("ENTERTAIN TEAM", [this] {
+            {"ENTERTAIN TEAM                    (£5,000)", 4, [this, confirm, attemptSpend] {
+                confirm("ENTERTAIN TEAM", [this, attemptSpend] {
                     context.resetTextBlocks();
                     context.setFooterLine("");
                     struct gamea::ManagerRecord &manager = gameData.manager[0];
                     ClubRecord &club = getClub(manager.club_idx);
+
+                    if (!attemptSpend(club, 5000)) {
+                        return;
+                    }
 
                     for (int i = 0; i < 24; ++i) {
                         PlayerRecord &player = getPlayer(club.player_index[i]);
@@ -172,20 +193,23 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
 
                     std::string result = "\"The team disperse into the streets, singing the praises of their generous manager.\"\n\n"
                                          "Team morale has been boosted";
-                    club.bank_account -= 5000;
                     context.addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
                 });
             }},
-            {"ARRANGE SMALL TRAINING CAMP     (£500,000)", 5, [this, confirm, isTrainingCampWeek, showTrainingCampRestriction] {
+            {"ARRANGE SMALL TRAINING CAMP     (£500,000)", 5, [this, confirm, isTrainingCampWeek, showTrainingCampRestriction, attemptSpend] {
                 if (!isTrainingCampWeek()) {
                     showTrainingCampRestriction();
                     return;
                 }
-                confirm("ARRANGE SMALL TRAINING CAMP", [this] {
+                confirm("ARRANGE SMALL TRAINING CAMP", [this, attemptSpend] {
                     context.resetTextBlocks();
                     context.setFooterLine("");
                     struct gamea::ManagerRecord &manager = gameData.manager[0];
                     ClubRecord &club = getClub(manager.club_idx);
+
+                    if (!attemptSpend(club, 500000)) {
+                        return;
+                    }
 
                     for (int i = 0; i < 24; ++i) {
                         PlayerRecord &player = getPlayer(club.player_index[i]);
@@ -202,20 +226,23 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
 
                     std::string result = "\"The team is looking quicker on their feet!\" - Assistant Manager\n\n"
                                          "Team stats increased";
-                    club.bank_account -= 500000;
                     context.addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
                 });
             }},
-            {"ARRANGE MEDIUM TRAINING CAMP  (£1,000,000)", 6, [this, confirm, isTrainingCampWeek, showTrainingCampRestriction] {
+            {"ARRANGE MEDIUM TRAINING CAMP  (£1,000,000)", 6, [this, confirm, isTrainingCampWeek, showTrainingCampRestriction, attemptSpend] {
                 if (!isTrainingCampWeek()) {
                     showTrainingCampRestriction();
                     return;
                 }
-                confirm("ARRANGE MEDIUM TRAINING CAMP", [this] {
+                confirm("ARRANGE MEDIUM TRAINING CAMP", [this, attemptSpend] {
                     context.resetTextBlocks();
                     context.setFooterLine("");
                     struct gamea::ManagerRecord &manager = gameData.manager[0];
                     ClubRecord &club = getClub(manager.club_idx);
+
+                    if (!attemptSpend(club, 1000000)) {
+                        return;
+                    }
 
                     for (int i = 0; i < 24; ++i) {
                         PlayerRecord &player = getPlayer(club.player_index[i]);
@@ -240,20 +267,23 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
 
                     std::string result = "\"The boys showed real progress!\" - Assistant Manager\n\n"
                                          "Team stats increased";
-                    club.bank_account -= 1000000;
                     context.addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
                 });
             }},
-            {"ARRANGE LARGE TRAINING CAMP   (£2,000,000)", 7, [this, confirm, isTrainingCampWeek, showTrainingCampRestriction] {
+            {"ARRANGE LARGE TRAINING CAMP   (£2,000,000)", 7, [this, confirm, isTrainingCampWeek, showTrainingCampRestriction, attemptSpend] {
                 if (!isTrainingCampWeek()) {
                     showTrainingCampRestriction();
                     return;
                 }
-                confirm("ARRANGE LARGE TRAINING CAMP", [this] {
+                confirm("ARRANGE LARGE TRAINING CAMP", [this, attemptSpend] {
                     context.resetTextBlocks();
                     context.setFooterLine("");
                     struct gamea::ManagerRecord &manager = gameData.manager[0];
                     ClubRecord &club = getClub(manager.club_idx);
+
+                    if (!attemptSpend(club, 2000000)) {
+                        return;
+                    }
 
                     for (int i = 0; i < 24; ++i) {
                         PlayerRecord &player = getPlayer(club.player_index[i]);
@@ -270,12 +300,11 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
 
                     std::string result = "\"They are like a new team!\" - Assistant Manager\n\n"
                                          "Team stats increased";
-                    club.bank_account -= 2000000;
                     context.addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
                 });
             }},
-            {"APPEAL RED CARD                  (£10,000)", 8, [this, confirm] {
-                confirm("APPEAL RED CARD", [this] {
+            {"APPEAL RED CARD                  (£10,000)", 8, [this, confirm, attemptSpend] {
+                confirm("APPEAL RED CARD", [this, attemptSpend] {
                     context.resetTextBlocks();
                     context.setFooterLine("");
                     struct gamea::ManagerRecord &manager = gameData.manager[0];
@@ -292,20 +321,27 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
                             } else {
                                 result = "\"Sorry, but our decision was fair.\" - The FA";
                             }
-                            club.bank_account -= 10000;
+                            if (!attemptSpend(club, 10000)) {
+                                return;
+                            }
                             break;
                         }
                     }
                     context.addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
                 });
             }},
-            {"BUILD NEW 25k SEAT STADIUM    (£5,000,000)", 9, [this, confirm] {
-                confirm("BUILD NEW 25k SEAT STADIUM", [this] {
+            {"BUILD NEW 25k SEAT STADIUM    (£5,000,000)", 9, [this, confirm, attemptSpend] {
+                confirm("BUILD NEW 25k SEAT STADIUM", [this, attemptSpend] {
                     context.resetTextBlocks();
                     struct gamea::ManagerRecord &manager = gameData.manager[0];
                     ClubRecord &club = getClub(manager.club_idx);
 
                     int currentStadiumValue = calculateStadiumValue(manager);
+                    int upgradeCost = 5000000 - currentStadiumValue;
+
+                    if (!attemptSpend(club, upgradeCost)) {
+                        return;
+                    }
 
                     club.seating_max = 25000;
 
@@ -329,7 +365,7 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
                         manager.stadium.area_covering[i].level = 2;
                     }
 
-                    club.bank_account -= (5000000 - currentStadiumValue);
+                    /* cost already deducted via attemptSpend */
 
                     std::string result = "\"The new 25,000 seat stadium is ready! The fans are going to love it!\" - Assistant Manager\n\n"
                                          "\"We'll buy your old stadium for £" + std::to_string(currentStadiumValue) +
@@ -337,13 +373,17 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
                     context.addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
                 });
             }},
-            {"BUILD NEW 50k SEAT STADIUM   (£15,000,000)", 10, [this, confirm] {
-                confirm("BUILD NEW 50k SEAT STADIUM", [this] {
+            {"BUILD NEW 50k SEAT STADIUM   (£15,000,000)", 10, [this, confirm, attemptSpend] {
+                confirm("BUILD NEW 50k SEAT STADIUM", [this, attemptSpend] {
                     context.resetTextBlocks();
                     struct gamea::ManagerRecord &manager = gameData.manager[0];
                     ClubRecord &club = getClub(manager.club_idx);
 
                     int currentStadiumValue = calculateStadiumValue(manager);
+                    int upgradeCost = 15000000 - currentStadiumValue;
+                    if (!attemptSpend(club, upgradeCost)) {
+                        return;
+                    }
                     club.seating_max = 50000;
 
                     manager.stadium.ground_facilities.level = 2;
@@ -366,7 +406,7 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
                         manager.stadium.area_covering[i].level = 3;
                     }
 
-                    club.bank_account -= (15000000 - currentStadiumValue);
+                    /* cost already deducted via attemptSpend */
 
                     std::string result = "\"The new 50,000 seat stadium is ready! It's incredible!\" - Assistant Manager\n\n"
                                          "\"We'll buy your old stadium for £" + std::to_string(currentStadiumValue) +
@@ -374,13 +414,17 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
                     context.addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
                 });
             }},
-            {"BUILD NEW 100k SEAT STADIUM  (£30,000,000)", 11, [this, confirm] {
-                confirm("BUILD NEW 100k SEAT STADIUM", [this] {
+            {"BUILD NEW 100k SEAT STADIUM  (£30,000,000)", 11, [this, confirm, attemptSpend] {
+                confirm("BUILD NEW 100k SEAT STADIUM", [this, attemptSpend] {
                     context.resetTextBlocks();
                     struct gamea::ManagerRecord &manager = gameData.manager[0];
                     ClubRecord &club = getClub(manager.club_idx);
 
                     int currentStadiumValue = calculateStadiumValue(manager);
+                    int upgradeCost = 30000000 - currentStadiumValue;
+                    if (!attemptSpend(club, upgradeCost)) {
+                        return;
+                    }
 
                     club.seating_max = 100000;
 
@@ -404,7 +448,7 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
                         manager.stadium.area_covering[i].level = 3;
                     }
 
-                    club.bank_account -= (30000000 - currentStadiumValue);
+                    /* cost already deducted via attemptSpend */
 
                     std::string result = "\"The new 100,000 seat stadium is ready! It's so nice, I bought my mum a season ticket!\" - Assistant Manager\n\n"
                                          "\"We'll buy your old stadium for £" + std::to_string(currentStadiumValue) +
