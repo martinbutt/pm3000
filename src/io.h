@@ -44,6 +44,7 @@ void saveDefaultClubdata(const std::filesystem::path &gamePath, const gameb &clu
 void saveDefaultPlaydata(const std::filesystem::path &gamePath, const gamec &playerDataOut=playerData);
 void saveMetadata(const std::filesystem::path &gamePath, saves &savesDirOut=savesDir, prefs &prefsOut=preferences);
 void updateMetadata(int gameNumber, const std::filesystem::path &gamePath);
+bool backupPm3Files(const std::filesystem::path &gamePath);
 std::filesystem::path constructSavesFolderPath(const std::filesystem::path& gamePath);
 std::filesystem::path constructSaveFilePath(const std::filesystem::path& gamePath, int gameNumber, char gameLetter);
 std::filesystem::path constructGameFilePath(const std::filesystem::path &gamePath, const std::string &fileName);

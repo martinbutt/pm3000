@@ -1,6 +1,8 @@
 // IO/persistence helpers for saves, metadata, and prefs.
 #include "io.h"
 
+#include <array>
+#include <string_view>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -282,6 +284,35 @@ bool backupSaveFile(const Settings &settings, int gameNumber) {
     return true;
 }
 
+bool backupPm3Files(const std::filesystem::path &game_path) {
+    std::filesystem::path backupDir = game_path / BACKUP_SAVE_PATH;
+    try {
+        if (!std::filesystem::exists(backupDir)) {
+            if (!std::filesystem::create_directories(backupDir)) {
+                gPm3LastError = "Failed to create backup directory: " + backupDir.string();
+                return false;
+            }
+        }
+
+        const std::array<std::string_view, 3> pm3Files = {kGameDataFile, kClubDataFile, kPlayDataFile};
+        for (const auto &fileName : pm3Files) {
+            std::filesystem::path source = constructGameFilePath(game_path, std::string{fileName});
+            if (!std::filesystem::exists(source)) {
+                gPm3LastError = "Missing PM3 file: " + source.string();
+                return false;
+            }
+
+            std::filesystem::path dest = backupDir / source.filename();
+            std::filesystem::copy(source, dest, std::filesystem::copy_options::overwrite_existing);
+        }
+    } catch (const std::filesystem::filesystem_error &e) {
+        gPm3LastError = std::string("Error backing up PM3 files: ") + e.what();
+        return false;
+    }
+
+    return true;
+}
+
 bool loadGame(const Settings &settings, int gameNumber, char *footer, size_t footerSize) {
     std::filesystem::path gameaPath = constructSaveFilePath(settings.gamePath, gameNumber, 'A');
     std::filesystem::path gamebPath = constructSaveFilePath(settings.gamePath, gameNumber, 'B');
@@ -348,7 +379,7 @@ void choosePm3Folder(Settings &settings, std::bitset<8> &saveFiles) {
 
 void loadGameConfirm(InputHandler &input, Settings &settings, int gameNumber, int &currentGame, char *footer,
                      size_t footerSize) {
-    snprintf(footer, footerSize, "Load Game %d: Are you sure?", gameNumber);
+    snprintf(footer, footerSize, "Load Game %d: Are you sure? (Y/N)", gameNumber);
 
     auto clearFooterAndCallbacks = [&input, footer]() {
         footer[0] = '\0';
@@ -370,7 +401,7 @@ void loadGameConfirm(InputHandler &input, Settings &settings, int gameNumber, in
 }
 
 void saveGameConfirm(InputHandler &input, const Settings &settings, int gameNumber, char *footer, size_t footerSize) {
-    snprintf(footer, footerSize, "Save Game %d: Are you sure?", gameNumber);
+    snprintf(footer, footerSize, "Save Game %d: Are you sure? (Y/N)", gameNumber);
 
     auto saveCallback = [&input, &settings, gameNumber, footer, footerSize]() {
         saveGame(settings, gameNumber, footer, footerSize);

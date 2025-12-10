@@ -1,6 +1,8 @@
 # PM3000 - Premier Manager 3 Game Add-on
 
-PM3000 is an add-on for Premier Manager 3, which allows you to load your save games to use additional functionality.
+PM3000 is an extension for Premier Manager 3 (Standard or Deluxe) that lets you load your save games and add extra tooling on top of the classic DOS experience.
+
+You must already own an original copy of Premier Manager 3 or Premier Manager 3 Deluxe to use this project. PM3000 reads and manipulates the existing GAMEA/GAMEB/GAMEC files from that installation so it cannot run standalone.
 
 The new features are intended to overcome some of the game's annoyances.
 - Change Team - This screen allows you to switch to a new team, unlocking the ability to start the game as your favorite team.
@@ -14,6 +16,8 @@ The new features are intended to overcome some of the game's annoyances.
   - Arrange a training camp - Increase the stats of your players
   - Appeal red card - Ask the FA to overturn a player ban
   - Build new stadium - Save time by building a whole new stadium
+
+This has been tested with Premier Manager 3 running under DOSBox on modern systems. The Amiga version has not been tested, but the data formats are shared, so the UI should still work when pointed at an Amiga save folder.
 
 ## Screenshots
 ![Loading Screen](https://raw.githubusercontent.com/martinbutt/pm3000/refs/heads/main/docs/screenshots/loading.png)
@@ -78,9 +82,11 @@ cd build && ctest --output-on-failure
 
 Add more cases under `tests/` as you extend the utilities.
 
+Backups of the three PM3 game files (`gamedata.dat`, `clubdata.dat`, `playdata.dat`) or save files (`saves/game*`) are made automatically in the `PM3000/` folder inside the PM3 save directory before any import or save mutation runs.
+
 ### SWOS team import tool
 
-The repo now vendors the SWOS TEAM.xxx parser directly (no external checkout needed). A CLI helper ships with the build to import SWOS teams/players into a PM3 save:
+The repo now vendors the SWOS `TEAM.008` parser directly (no external checkout needed). A CLI helper ships with the build to import SWOS teams/players into a PM3 save:
 
 ```sh
 # Build the tool
@@ -89,6 +95,10 @@ cmake --build build --target swos_import_tool
 # Import TEAM.008 into save slot 1 for a PM3 folder
 ./build/swos_import_tool --team /path/to/TEAM.008 --pm3 /path/to/PM3 --game 1
 ```
+
+The same functionality is now exposed from inside the SDL UI—use the Settings screen's **Import SWOS Teams** entry, which will re-use the currently configured PM3 folder and prompt for a TEAM.xxx file.
+
+Before each import (CLI or UI) the tool copies `gamedata.dat`, `clubdata.dat`, and `playdata.dat` into the `PM3000/` backup directory within the selected PM3 folder.
 
 What it does:
 - Matches imported teams to existing GAMEB clubs by name and updates league/manager/kit, renaming players role-for-role.

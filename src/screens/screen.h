@@ -20,6 +20,7 @@ struct ScreenContext {
     std::function<const std::filesystem::path &()> gamePath;
     std::function<Pm3GameType()> gameType;
     std::function<void()> choosePm3Folder;
+    std::function<void()> importSwosTeams;
     std::function<void()> levelAggression;
     std::function<void(const char *)> setFooter;
     std::function<bool(bool)> ensureMetadataLoaded;

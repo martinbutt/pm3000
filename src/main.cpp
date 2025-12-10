@@ -10,6 +10,7 @@
 #include <exception>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include "config/constants.h"
 #include "text.h"
 #include "gfx.h"
@@ -17,6 +18,8 @@
 #include "io.h"
 #include "game_utils.h"
 #include "settings.h"
+#include "swos_import.h"
+#include "nfd.h"
 #include "ui.h"
 #include "screens/screen.h"
 #include "screens/loading_screen.h"
@@ -101,6 +104,8 @@ private:
     void drawCurrentScreen();
 
     void toggleWindowed();
+
+    void importSwosTeams();
 
     [[noreturn]] static void exitError(const std::string &errorMessage);
 
@@ -192,6 +197,9 @@ void Application::initializeScreens() {
         } catch (const std::exception &ex) {
             exitError(ex.what());
         }
+    };
+    screenContext.importSwosTeams = [this]() {
+        importSwosTeams();
     };
     screenContext.levelAggression = [this]() { levelAggression(); };
     screenContext.setFooter = [this](const char *text) { strncpy(footer, text, sizeof(footer) - 1); footer[sizeof(footer)-1] = '\0'; };
@@ -434,6 +442,61 @@ void Application::drawCurrentScreen() {
     }
 
     clickableAreasConfigured = true;
+}
+
+void Application::importSwosTeams() {
+    if (settings.gamePath.empty()) {
+        snprintf(footer, sizeof(footer), "Select PM3 folder before importing.");
+        return;
+    }
+
+    if (!io::backupPm3Files(settings.gamePath)) {
+        snprintf(footer, sizeof(footer), "Backup failed: %.64s", io::pm3LastError().c_str());
+        return;
+    }
+
+    try {
+        io::loadDefaultGamedata(settings.gamePath, gameData);
+        io::loadDefaultClubdata(settings.gamePath, clubData);
+        io::loadDefaultPlaydata(settings.gamePath, playerData);
+    } catch (const std::exception &ex) {
+        snprintf(footer, sizeof(footer), "Load failed: %.64s", ex.what());
+        return;
+    }
+
+    NFD_Init();
+    nfdchar_t *teamPathRaw = nullptr;
+    std::string defaultPathUtf8 = settings.gamePath.u8string();
+    const char *defaultPathPtr = defaultPathUtf8.empty() ? nullptr : defaultPathUtf8.c_str();
+    nfdresult_t result = NFD_OpenDialog(&teamPathRaw, nullptr, 0, defaultPathPtr);
+    std::string message;
+
+    if (result == NFD_OKAY && teamPathRaw) {
+        std::filesystem::path teamPath(teamPathRaw);
+        NFD_FreePath(teamPathRaw);
+        try {
+            std::string pm3PathUtf8 = settings.gamePath.u8string();
+            auto report = swos_import::importTeamsFromFile(teamPath.u8string(), pm3PathUtf8);
+            io::saveDefaultGamedata(settings.gamePath, gameData);
+            io::saveDefaultClubdata(settings.gamePath, clubData);
+            io::saveDefaultPlaydata(settings.gamePath, playerData);
+            message = "SWOS import: matched " + std::to_string(report.teams_matched) +
+                      ", created " + std::to_string(report.teams_created) +
+                      ", unplaced " + std::to_string(report.teams_unplaced) +
+                      ", renamed " + std::to_string(report.players_renamed) + " players.";
+        } catch (const std::exception &ex) {
+            message = "Import failed: ";
+            message += ex.what();
+        }
+    } else if (result == NFD_CANCEL) {
+        message = "SWOS import canceled";
+    } else {
+        const char *err = NFD_GetError();
+        message = std::string("Dialog error: ") + (err ? err : "Unknown");
+    }
+
+    NFD_Quit();
+    snprintf(footer, sizeof(footer), "%s", message.c_str());
 }
 
 void Application::toggleWindowed() {

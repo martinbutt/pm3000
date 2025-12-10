@@ -129,6 +129,12 @@ int main(int argc, char **argv) {
     }
     Args args = *parsed;
 
+    std::filesystem::path pm3Path(args.pm3Path);
+    if (!io::backupPm3Files(pm3Path)) {
+        std::cerr << "Failed to backup PM3 files: " << io::pm3LastError() << "\n";
+        return 1;
+    }
+
     if (args.verifyGamedata) {
         if (!verifyGamedataRoundtrip(args.pm3Path)) {
             return 1;

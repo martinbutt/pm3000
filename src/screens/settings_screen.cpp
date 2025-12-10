@@ -25,9 +25,9 @@ void SettingsScreen::draw(bool attachClickCallbacks) {
         text[69] = '\0';
     }
 
-    context.writeText("PM3 Folder", 2, Colors::TEXT_2, TEXT_TYPE_SMALL, nullptr, 0);
+    context.writeText("PM3 Folder", 2, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr, 0);
     context.writeText(text, 3, Colors::TEXT_1, TEXT_TYPE_SMALL, folderClickCallback, 0);
-    context.writeText(gameTypeNames[static_cast<size_t>(context.gameType())], 4, Colors::TEXT_1, TEXT_TYPE_SMALL,
+    context.writeText(gameTypeNames[static_cast<size_t>(context.gameType())], 4, Colors::TEXT_2, TEXT_TYPE_SMALL,
                       folderClickCallback, 0);
 
     if (context.currentGame() != 0) {
@@ -42,4 +42,12 @@ void SettingsScreen::draw(bool attachClickCallbacks) {
                 MARGIN_LEFT, 144, SCREEN_WIDTH - (MARGIN_LEFT * 2), Colors::TEXT_2, TEXT_TYPE_SMALL,
                 levelAggressionClickCallback);
     }
+
+    std::function<void(void)> importClickCallback = attachClickCallbacks ? [this] { context.importSwosTeams(); }
+                                                                         : std::function<void(void)>{};
+    context.writeText("IMPORT SWOS TEAMS", 12, Colors::TEXT_1, TEXT_TYPE_SMALL, importClickCallback, 0);
+    context.addTextBlock(
+            "Choose a SWOS TEAM.xxx file to import its squads into the PM3 folder above.",
+            MARGIN_LEFT, 254, SCREEN_WIDTH - (MARGIN_LEFT * 2), Colors::TEXT_2, TEXT_TYPE_SMALL,
+            importClickCallback);
 }
