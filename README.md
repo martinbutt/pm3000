@@ -79,6 +79,15 @@ cmake --build build --target swos_import_tool
 What it does:
 - Matches imported teams to existing GAMEB clubs by name and updates league/manager/kit, renaming players role-for-role.
 - Any imported teams not found replace unmatched clubs, assign a generic stadium name, copy kit colors, and rename squad players in place.
+> **Note:** SWOS and PM3 have different league structures now, so the import is a best effort—team counts per division still differ and some placements/kits get guessed where the source data no longer lines up perfectly.
+
+#### Refreshing `TEAM.008` from SWOS2020
+
+`TEAM.008` is the Sensible World of Soccer squad file that the importer reads. The SWOS2020 project keeps a curated, up-to-date version:
+
+1. Download the latest package from https://swos2020.com/downloads. Pick the `.zip`/`.lha` bundle for the team database.
+2. Extract the archive with your favorite tool (`lha`, `7z`, etc.) until you find `TEAM.008`.
+3. Pass that extracted file to `swos_import_tool --team` to import the newest SWOS rosters into your PM3 save.
 
 ## Inspecting PM3 data files
 
