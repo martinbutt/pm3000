@@ -130,6 +130,16 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
     auto confirm = [this](const std::string &label, const std::function<void(void)> &action) {
         confirmTelephoneAction(context, label, action);
     };
+    auto isTrainingCampWeek = []() {
+        int currentWeek = static_cast<int>(gameData.turn) / 3 + 1;
+        return currentWeek == 37;
+    };
+    auto showTrainingCampRestriction = [this]() {
+        context.resetTextBlocks();
+        context.setFooterLine("");
+        context.addTextBlock("Training camps are only available in week 37.", 400, 75, 200,
+                             Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
+    };
 
     std::vector<TelephoneMenuItem> menuItems = {
             {"ADVERTISE FOR FANS               (£25,000)", 3, [this, confirm] {
@@ -166,7 +176,11 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
                     context.addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
                 });
             }},
-            {"ARRANGE SMALL TRAINING CAMP     (£500,000)", 5, [this, confirm] {
+            {"ARRANGE SMALL TRAINING CAMP     (£500,000)", 5, [this, confirm, isTrainingCampWeek, showTrainingCampRestriction] {
+                if (!isTrainingCampWeek()) {
+                    showTrainingCampRestriction();
+                    return;
+                }
                 confirm("ARRANGE SMALL TRAINING CAMP", [this] {
                     context.resetTextBlocks();
                     context.setFooterLine("");
@@ -192,7 +206,11 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
                     context.addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
                 });
             }},
-            {"ARRANGE MEDIUM TRAINING CAMP  (£1,000,000)", 6, [this, confirm] {
+            {"ARRANGE MEDIUM TRAINING CAMP  (£1,000,000)", 6, [this, confirm, isTrainingCampWeek, showTrainingCampRestriction] {
+                if (!isTrainingCampWeek()) {
+                    showTrainingCampRestriction();
+                    return;
+                }
                 confirm("ARRANGE MEDIUM TRAINING CAMP", [this] {
                     context.resetTextBlocks();
                     context.setFooterLine("");
@@ -226,7 +244,11 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
                     context.addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
                 });
             }},
-            {"ARRANGE LARGE TRAINING CAMP   (£2,000,000)", 7, [this, confirm] {
+            {"ARRANGE LARGE TRAINING CAMP   (£2,000,000)", 7, [this, confirm, isTrainingCampWeek, showTrainingCampRestriction] {
+                if (!isTrainingCampWeek()) {
+                    showTrainingCampRestriction();
+                    return;
+                }
                 confirm("ARRANGE LARGE TRAINING CAMP", [this] {
                     context.resetTextBlocks();
                     context.setFooterLine("");
