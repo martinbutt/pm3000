@@ -33,6 +33,20 @@ The new features are intended to overcome some of the game's annoyances.
 sudo apt install git build-essential pkg-config cmake cmake-data libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libgtk-3-dev
 ```
 
+**On macOS, install the SDL2/SDL2_image/SDL2_ttf bottles so the release binary can load those dylibs from `/opt/homebrew/opt`.**
+
+```sh
+brew install sdl2 sdl2_image sdl2_ttf
+```
+
+`gtk+3` is only required when building on Linux (see the Debian/Ubuntu instructions).
+
+If you want to build from source locally, also install the build tooling before running `cmake`/`ninja`:
+
+```sh
+brew install git cmake ninja
+```
+
 ### Instructions
 
 ```sh
