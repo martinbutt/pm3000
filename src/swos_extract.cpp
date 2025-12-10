@@ -1,8 +1,6 @@
 // SWOS TEAM.xxx parser (embedded from external/swos_extract).
 #include "swos_extract.hpp"
 
-#include "rnc_decompress.hpp"
-
 #include <fstream>
 #include <iostream>
 #include <vector>
@@ -131,4 +129,3 @@ TeamDB swos::load_teams(const std::string &team_file, PlayerDB *players_out) {
 
     return out;
 }
-

@@ -110,7 +110,6 @@ target_include_directories(swos_import_tool PRIVATE src include)
 target_sources(swos_import_tool PRIVATE
         src/swos_import.cpp
         src/swos_extract.cpp
-        src/rnc_decompress.cpp
         src/io.cpp
         src/pm3_data.cpp
         src/game_utils.cpp
