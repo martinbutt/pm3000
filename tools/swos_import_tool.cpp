@@ -83,6 +83,7 @@ struct Args {
     std::string teamFile;
     std::string pm3Path;
     int gameNumber = 0;
+    int year = 0;
     bool verbose = false;
     bool baseData = false;
     bool verifyGamedata = false;
@@ -98,6 +99,8 @@ std::optional<Args> parseArgs(int argc, char **argv) {
             args.pm3Path = argv[++i];
         } else if ((a == "--game" || a == "-g") && i + 1 < argc) {
             args.gameNumber = std::atoi(argv[++i]);
+        } else if ((a == "--year" || a == "-y") && i + 1 < argc) {
+            args.year = std::atoi(argv[++i]);
         } else if (a == "--verbose" || a == "-v") {
             args.verbose = true;
         } else if (a == "--base" || a == "--default") {
@@ -121,7 +124,7 @@ std::optional<Args> parseArgs(int argc, char **argv) {
 int main(int argc, char **argv) {
     auto parsed = parseArgs(argc, argv);
     if (!parsed) {
-        std::cerr << "Usage: swos_import_tool --team TEAM.xxx --pm3 /path/to/PM3 (--game <1-8> | --base) [--verbose]\n";
+        std::cerr << "Usage: swos_import_tool --team TEAM.xxx --pm3 /path/to/PM3 (--game <1-8> | --base) [--year <value>] [--verbose]\n";
         return 1;
     }
     Args args = *parsed;
@@ -143,6 +146,10 @@ int main(int argc, char **argv) {
     } catch (const std::exception &ex) {
         std::cerr << "Failed to load data: " << ex.what() << "\n";
         return 1;
+    }
+
+    if (args.year != 0) {
+        gameData.year = args.year;
     }
 
     auto report = swos_import::importTeamsFromFile(args.teamFile, args.pm3Path, args.verbose);
