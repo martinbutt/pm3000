@@ -315,7 +315,7 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
                     context.addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
                 });
             }},
-            {"BUILD NEW 50k SEAT STADIUM   (£10,000,000)", 10, [this, confirm] {
+            {"BUILD NEW 50k SEAT STADIUM   (£15,000,000)", 10, [this, confirm] {
                 confirm("BUILD NEW 50k SEAT STADIUM", [this] {
                     context.resetTextBlocks();
                     struct gamea::ManagerRecord &manager = gameData.manager[0];
@@ -344,7 +344,7 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
                         manager.stadium.area_covering[i].level = 3;
                     }
 
-                    club.bank_account -= (10000000 - currentStadiumValue);
+                    club.bank_account -= (15000000 - currentStadiumValue);
 
                     std::string result = "\"The new 50,000 seat stadium is ready! It's incredible!\" - Assistant Manager\n\n"
                                          "\"We'll buy your old stadium for £" + std::to_string(currentStadiumValue) +
@@ -352,7 +352,7 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
                     context.addTextBlock(result.c_str(), 400, 75, 200, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr);
                 });
             }},
-            {"BUILD NEW 100k SEAT STADIUM  (£15,000,000)", 11, [this, confirm] {
+            {"BUILD NEW 100k SEAT STADIUM  (£30,000,000)", 11, [this, confirm] {
                 confirm("BUILD NEW 100k SEAT STADIUM", [this] {
                     context.resetTextBlocks();
                     struct gamea::ManagerRecord &manager = gameData.manager[0];
@@ -382,7 +382,7 @@ void TelephoneScreen::draw(bool attachClickCallbacks) {
                         manager.stadium.area_covering[i].level = 3;
                     }
 
-                    club.bank_account -= (15000000 - currentStadiumValue);
+                    club.bank_account -= (30000000 - currentStadiumValue);
 
                     std::string result = "\"The new 100,000 seat stadium is ready! It's so nice, I bought my mum a season ticket!\" - Assistant Manager\n\n"
                                          "\"We'll buy your old stadium for £" + std::to_string(currentStadiumValue) +
