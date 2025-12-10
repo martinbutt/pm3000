@@ -241,7 +241,7 @@ int determinePlayerImportance(const PlayerRecord &player, const ClubRecord &club
     return importance;
 }
 
-void changeClub(int16_t newClubIdx, const char* gamePath, int player) {
+void changeClub(int16_t newClubIdx, const std::filesystem::path &gamePath, int player) {
     gamea::ManagerRecord &manager = gameData.manager[player];
     int oldClubIdx = manager.club_idx;
     manager.club_idx = newClubIdx;

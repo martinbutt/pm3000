@@ -2,6 +2,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -24,7 +25,7 @@ int determinePlayerImportance(const PlayerRecord &player, const ClubRecord &club
 std::vector<club_player> findFreePlayers();
 std::vector<club_player> getMyPlayers(int player);
 void levelAggression();
-void changeClub(int16_t newClubIdx, const char* gamePath, int player=0);
+void changeClub(int16_t newClubIdx, const std::filesystem::path &gamePath, int player=0);
 
 namespace game_utils {
 

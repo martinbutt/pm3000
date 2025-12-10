@@ -32,22 +32,22 @@ void loadGameConfirm(InputHandler &input, Settings &settings, int gameNumber, in
 void saveGameConfirm(InputHandler &input, const Settings &settings, int gameNumber, char *footer, size_t footerSize);
 void formatSaveGameLabel(int i, char *gameLabel, size_t gameLabelSize);
 
-void loadBinaries(int gameNumber, const std::string &gamePath, gamea &gameDataOut=gameData, gameb &clubDataOut=clubData, gamec &playerDataOut=playerData);
-void loadDefaultGamedata(const std::string &gamePath, gamea &gameDataOut=gameData);
-void loadDefaultClubdata(const std::string &gamePath, gameb &clubDataOut=clubData);
-void loadDefaultPlaydata(const std::string &gamePath, gamec &playerDataOut=playerData);
-bool loadMetadata(const std::string &gamePath, saves &savesDirOut=savesDir, prefs &prefsOut=preferences);
-void saveBinaries(int gameNumber, const std::string &gamePath, gamea &gameDataOut=gameData, gameb &clubDataOut=clubData, gamec &playerDataOut=playerData);
-void saveDefaultGamedata(const std::string &gamePath, const gamea &gameDataOut=gameData);
+void loadBinaries(int gameNumber, const std::filesystem::path &gamePath, gamea &gameDataOut=gameData, gameb &clubDataOut=clubData, gamec &playerDataOut=playerData);
+void loadDefaultGamedata(const std::filesystem::path &gamePath, gamea &gameDataOut=gameData);
+void loadDefaultClubdata(const std::filesystem::path &gamePath, gameb &clubDataOut=clubData);
+void loadDefaultPlaydata(const std::filesystem::path &gamePath, gamec &playerDataOut=playerData);
+bool loadMetadata(const std::filesystem::path &gamePath, saves &savesDirOut=savesDir, prefs &prefsOut=preferences);
+void saveBinaries(int gameNumber, const std::filesystem::path &gamePath, gamea &gameDataOut=gameData, gameb &clubDataOut=clubData, gamec &playerDataOut=playerData);
+void saveDefaultGamedata(const std::filesystem::path &gamePath, const gamea &gameDataOut=gameData);
 std::size_t getGameaExtraBytes();
-void saveDefaultClubdata(const std::string &gamePath, const gameb &clubDataOut=clubData);
-void saveDefaultPlaydata(const std::string &gamePath, const gamec &playerDataOut=playerData);
-void saveMetadata(const std::string &gamePath, saves &savesDirOut=savesDir, prefs &prefsOut=preferences);
-void updateMetadata(int gameNumber, const std::string &gamePath);
-std::filesystem::path constructSavesFolderPath(const std::string& gamePath);
-std::filesystem::path constructSaveFilePath(const std::string& gamePath, int gameNumber, char gameLetter);
-std::filesystem::path constructGameFilePath(const std::string &gamePath, const std::string &fileName);
-Pm3GameType getPm3GameType(const char *gamePath);
+void saveDefaultClubdata(const std::filesystem::path &gamePath, const gameb &clubDataOut=clubData);
+void saveDefaultPlaydata(const std::filesystem::path &gamePath, const gamec &playerDataOut=playerData);
+void saveMetadata(const std::filesystem::path &gamePath, saves &savesDirOut=savesDir, prefs &prefsOut=preferences);
+void updateMetadata(int gameNumber, const std::filesystem::path &gamePath);
+std::filesystem::path constructSavesFolderPath(const std::filesystem::path& gamePath);
+std::filesystem::path constructSaveFilePath(const std::filesystem::path& gamePath, int gameNumber, char gameLetter);
+std::filesystem::path constructGameFilePath(const std::filesystem::path &gamePath, const std::string &fileName);
+Pm3GameType getPm3GameType(const std::filesystem::path &gamePath);
 const char* getSavesFolder(Pm3GameType gameType);
 const std::string& pm3LastError();
 

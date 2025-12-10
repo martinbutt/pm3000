@@ -20,10 +20,10 @@ static std::vector<uint8_t> gGameaTail;
 static std::size_t gGameaExtraBytes = 0;
 
 template <typename T>
-static bool load_binary_file(const std::string &filepath, T &data) {
+static bool load_binary_file(const std::filesystem::path &filepath, T &data) {
     std::ifstream file(filepath, std::ios::binary);
     if (!file) {
-        gPm3LastError = "Missing file: " + filepath;
+        gPm3LastError = "Missing file: " + filepath.string();
         return false;
     }
     file.read(reinterpret_cast<char*>(&data), sizeof(T));
@@ -31,17 +31,17 @@ static bool load_binary_file(const std::string &filepath, T &data) {
 }
 
 template <typename T>
-static void save_binary_file(const std::string &filepath, const T &data) {
+static void save_binary_file(const std::filesystem::path &filepath, const T &data) {
     std::ofstream file(filepath, std::ios::binary);
     if (!file) {
-        throw std::runtime_error("Could not open file for writing: " + filepath);
+        throw std::runtime_error("Could not open file for writing: " + filepath.string());
     }
     file.write(reinterpret_cast<const char*>(&data), sizeof(T));
 }
 
 namespace io {
 
-void loadBinaries(int game_nr, const std::string &game_path, gamea &game_data, gameb &club_data, gamec &player_data) {
+void loadBinaries(int game_nr, const std::filesystem::path &game_path, gamea &game_data, gameb &club_data, gamec &player_data) {
     if (!load_binary_file(constructSaveFilePath(game_path, game_nr, 'A'), game_data) ||
         !load_binary_file(constructSaveFilePath(game_path, game_nr, 'B'), club_data) ||
         !load_binary_file(constructSaveFilePath(game_path, game_nr, 'C'), player_data)) {
@@ -49,7 +49,7 @@ void loadBinaries(int game_nr, const std::string &game_path, gamea &game_data, g
     }
 }
 
-void loadDefaultGamedata(const std::string &game_path, gamea &game_data) {
+void loadDefaultGamedata(const std::filesystem::path &game_path, gamea &game_data) {
     gGameaTail.clear();
     std::filesystem::path path = constructGameFilePath(game_path, std::string{kGameDataFile});
     std::ifstream file(path, std::ios::binary);
@@ -71,19 +71,19 @@ void loadDefaultGamedata(const std::string &game_path, gamea &game_data) {
     }
 }
 
-void loadDefaultClubdata(const std::string &game_path, gameb &club_data) {
+void loadDefaultClubdata(const std::filesystem::path &game_path, gameb &club_data) {
     if (!load_binary_file(constructGameFilePath(game_path, std::string{kClubDataFile}), club_data)) {
         throw std::runtime_error(gPm3LastError);
     }
 }
 
-void loadDefaultPlaydata(const std::string &game_path, gamec &player_data) {
+void loadDefaultPlaydata(const std::filesystem::path &game_path, gamec &player_data) {
     if (!load_binary_file(constructGameFilePath(game_path, std::string{kPlayDataFile}), player_data)) {
         throw std::runtime_error(gPm3LastError);
     }
 }
 
-void saveDefaultGamedata(const std::string &game_path, const gamea &game_data) {
+void saveDefaultGamedata(const std::filesystem::path &game_path, const gamea &game_data) {
     std::filesystem::path path = constructGameFilePath(game_path, std::string{kGameDataFile});
     std::ofstream file(path, std::ios::binary);
     if (!file) {
@@ -99,15 +99,15 @@ std::size_t getGameaExtraBytes() {
     return gGameaExtraBytes;
 }
 
-bool loadMetadata(const std::string &game_path, saves &saves_dir_data, prefs &prefs_data) {
-    Pm3GameType game_type = getPm3GameType(game_path.c_str());
+bool loadMetadata(const std::filesystem::path &game_path, saves &saves_dir_data, prefs &prefs_data) {
+    Pm3GameType game_type = getPm3GameType(game_path);
     const char* saves_folder = getSavesFolder(game_type);
     if (saves_folder == nullptr) {
-        gPm3LastError = "Invalid PM3 folder: could not find PM3 executable in " + game_path;
+        gPm3LastError = "Invalid PM3 folder: could not find PM3 executable in " + game_path.string();
         return false;
     }
 
-    std::filesystem::path full_path = std::filesystem::path(game_path) / saves_folder;
+    std::filesystem::path full_path = game_path / saves_folder;
     bool saves_ok = load_binary_file(full_path / std::string{kSavesDirFile}, saves_dir_data);
     bool prefs_ok = load_binary_file(full_path / std::string{kPrefsFile}, prefs_data);
 
@@ -121,59 +121,59 @@ bool loadMetadata(const std::string &game_path, saves &saves_dir_data, prefs &pr
     return true;
 }
 
-void saveBinaries(int game_nr, const std::string &game_path, gamea &game_data, gameb &club_data, gamec &player_data) {
+void saveBinaries(int game_nr, const std::filesystem::path &game_path, gamea &game_data, gameb &club_data, gamec &player_data) {
     save_binary_file(constructSaveFilePath(game_path, game_nr, 'A'), game_data);
     save_binary_file(constructSaveFilePath(game_path, game_nr, 'B'), club_data);
     save_binary_file(constructSaveFilePath(game_path, game_nr, 'C'), player_data);
 }
 
-void saveDefaultClubdata(const std::string &game_path, const gameb &club_data) {
+void saveDefaultClubdata(const std::filesystem::path &game_path, const gameb &club_data) {
     save_binary_file(constructGameFilePath(game_path, std::string{kClubDataFile}), club_data);
 }
 
-void saveDefaultPlaydata(const std::string &game_path, const gamec &player_data) {
+void saveDefaultPlaydata(const std::filesystem::path &game_path, const gamec &player_data) {
     save_binary_file(constructGameFilePath(game_path, std::string{kPlayDataFile}), player_data);
 }
 
-void saveMetadata(const std::string &game_path, saves &saves_dir_data, prefs &prefs_data) {
+void saveMetadata(const std::filesystem::path &game_path, saves &saves_dir_data, prefs &prefs_data) {
     save_binary_file(constructGameFilePath(game_path, std::string{kSavesDirFile}), saves_dir_data);
     save_binary_file(constructGameFilePath(game_path, std::string{kPrefsFile}), prefs_data);
 }
 
-void updateMetadata(int game_nr, const std::string &game_path) {
+void updateMetadata(int game_nr, const std::filesystem::path &game_path) {
     savesDir.game[game_nr - 1].turn = gameData.turn;
     savesDir.game[game_nr - 1].year = gameData.year;
 
-    saveMetadata(std::filesystem::path(game_path).parent_path(), savesDir, preferences);
+    saveMetadata(game_path.parent_path(), savesDir, preferences);
 }
 
-std::filesystem::path constructSavesFolderPath(const std::string& game_path) {
-    Pm3GameType game_type = getPm3GameType(game_path.c_str());
+std::filesystem::path constructSavesFolderPath(const std::filesystem::path& game_path) {
+    Pm3GameType game_type = getPm3GameType(game_path);
     const char *savesFolder = getSavesFolder(game_type);
     if (savesFolder == nullptr) {
-        gPm3LastError = "Invalid PM3 folder: could not find PM3 executable in " + game_path;
+        gPm3LastError = "Invalid PM3 folder: could not find PM3 executable in " + game_path.string();
         return {};
     }
 
-    return std::filesystem::path(game_path) / savesFolder;
+    return game_path / savesFolder;
 }
 
-std::filesystem::path constructSaveFilePath(const std::string& game_path, int gameNumber, char gameLetter) {
+std::filesystem::path constructSaveFilePath(const std::filesystem::path& game_path, int gameNumber, char gameLetter) {
     return constructSavesFolderPath(game_path) / (std::string{kGameFilePrefix} + std::to_string(gameNumber) + gameLetter);
 }
 
-std::filesystem::path constructGameFilePath(const std::string &game_path, const std::string &file_name) {
-    return std::filesystem::path(game_path) / file_name;
+std::filesystem::path constructGameFilePath(const std::filesystem::path &game_path, const std::string &file_name) {
+    return game_path / file_name;
 }
 
-Pm3GameType getPm3GameType(const char *game_path) {
+Pm3GameType getPm3GameType(const std::filesystem::path &game_path) {
     std::filesystem::path full_path;
-    full_path = std::filesystem::path(game_path) / kExeStandardFilename;
+    full_path = game_path / kExeStandardFilename;
     if (std::filesystem::exists(full_path)) {
         return Pm3GameType::Standard;
     }
 
-    full_path = std::filesystem::path(game_path) / kExeDeluxeFilename;
+    full_path = game_path / kExeDeluxeFilename;
     if (std::filesystem::exists(full_path)) {
         return Pm3GameType::Deluxe;
     }
@@ -283,17 +283,20 @@ bool backupSaveFile(const Settings &settings, int gameNumber) {
 }
 
 bool loadGame(const Settings &settings, int gameNumber, char *footer, size_t footerSize) {
-    std::string gameaName = constructSaveFilePath(settings.gamePath, gameNumber, 'A');
-    std::string gamebName = constructSaveFilePath(settings.gamePath, gameNumber, 'B');
-    std::string gamecName = constructSaveFilePath(settings.gamePath, gameNumber, 'C');
+    std::filesystem::path gameaPath = constructSaveFilePath(settings.gamePath, gameNumber, 'A');
+    std::filesystem::path gamebPath = constructSaveFilePath(settings.gamePath, gameNumber, 'B');
+    std::filesystem::path gamecPath = constructSaveFilePath(settings.gamePath, gameNumber, 'C');
 
-    if (std::filesystem::file_size(gameaName) != static_cast<uintmax_t>(saveGameSizes[0])) {
+    if (std::filesystem::file_size(gameaPath) != static_cast<uintmax_t>(saveGameSizes[0])) {
+        std::string gameaName = gameaPath.string();
         snprintf(footer, footerSize, "INVALID %s FILESIZE", gameaName.c_str());
         return false;
-    } else if (std::filesystem::file_size(gamebName) != static_cast<uintmax_t>(saveGameSizes[1])) {
+    } else if (std::filesystem::file_size(gamebPath) != static_cast<uintmax_t>(saveGameSizes[1])) {
+        std::string gamebName = gamebPath.string();
         snprintf(footer, footerSize, "INVALID %s FILESIZE", gamebName.c_str());
         return false;
-    } else if (std::filesystem::file_size(gamecName) != static_cast<uintmax_t>(saveGameSizes[2])) {
+    } else if (std::filesystem::file_size(gamecPath) != static_cast<uintmax_t>(saveGameSizes[2])) {
+        std::string gamecName = gamecPath.string();
         snprintf(footer, footerSize, "INVALID %s FILESIZE", gamecName.c_str());
         return false;
     }
@@ -304,7 +307,7 @@ bool loadGame(const Settings &settings, int gameNumber, char *footer, size_t foo
 
 bool saveGame(const Settings &settings, int gameNumber, char *footer, size_t footerSize) {
     if (backupSaveFile(settings, gameNumber)) {
-        updateMetadata(gameNumber, settings.gamePath.string());
+        updateMetadata(gameNumber, settings.gamePath);
         saveBinaries(gameNumber, settings.gamePath);
         saveMetadata(settings.gamePath);
         snprintf(footer, footerSize, "GAME %d SAVED", gameNumber);
@@ -320,10 +323,17 @@ void choosePm3Folder(Settings &settings, std::bitset<8> &saveFiles) {
 
     nfdchar_t *outPath;
 
-    nfdresult_t result = NFD_PickFolder(&outPath, settings.gamePath.empty() ? nullptr : settings.gamePath.c_str());
+    std::string defaultPathUtf8;
+    if (!settings.gamePath.empty()) {
+        defaultPathUtf8 = settings.gamePath.u8string();
+    }
+    const char *defaultPathPtr = defaultPathUtf8.empty() ? nullptr : defaultPathUtf8.c_str();
+
+    nfdresult_t result = NFD_PickFolder(&outPath, defaultPathPtr);
     if (result == NFD_OKAY && outPath) {
-        settings.gameType = getPm3GameType(outPath);
-        settings.gamePath = outPath;
+        std::filesystem::path selectedPath(outPath);
+        settings.gameType = getPm3GameType(selectedPath);
+        settings.gamePath = selectedPath;
         NFD_FreePath(outPath);
         savePrefs(settings);
         memoizeSaveFiles(settings, saveFiles);

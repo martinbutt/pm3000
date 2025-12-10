@@ -17,7 +17,7 @@ void ChangeTeamScreen::draw(bool attachClickCallbacks) {
         char clubText[34];
         snprintf(clubText, sizeof(clubText), "Club changed to %16.16s", club.name);
 
-        changeClub(context.selectedClub(), context.gamePath().c_str(), 0);
+        changeClub(context.selectedClub(), context.gamePath(), 0);
         context.writeText(clubText, 8, Colors::TEXT_1, TEXT_TYPE_SMALL, nullptr, 0);
 
         context.writeText(

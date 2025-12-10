@@ -121,7 +121,7 @@ void Application::initializeSDL() {
     SDL_SetRelativeMouseMode(SDL_TRUE);
 
     io::loadPrefs(settings);
-    settings.gameType = io::getPm3GameType(settings.gamePath.c_str());
+    settings.gameType = io::getPm3GameType(settings.gamePath);
 
 #if defined linux && SDL_VERSION_ATLEAST(2, 0, 8)
     // Disable compositor bypass
