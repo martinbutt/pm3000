@@ -53,11 +53,16 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
-          choco install -y cmake ninja sdl2 sdl2-image sdl2-ttf
-          echo "GTK installation requires MSYS2"
+          choco install -y cmake ninja
           choco install -y msys2
           refreshenv
-          C:\msys64\usr\bin\bash -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3"
+          C:\msys64\usr\bin\bash -lc "pacman -Syu --noconfirm"
+          C:\msys64\usr\bin\bash -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_ttf mingw-w64-x86_64-gtk3"
+          echo "C:/msys64/mingw64/bin" >> $env:GITHUB_PATH
+          echo "SDL2DIR=C:/msys64/mingw64" >> $env:GITHUB_ENV
+          echo "SDL2_IMAGE_PATH=C:/msys64/mingw64" >> $env:GITHUB_ENV
+          echo "SDL2_TTF_PATH=C:/msys64/mingw64" >> $env:GITHUB_ENV
+          echo "CMAKE_PREFIX_PATH=C:/msys64/mingw64" >> $env:GITHUB_ENV
 
       - name: Configure CMake
         run: cmake -B build -G Ninja
