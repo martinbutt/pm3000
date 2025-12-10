@@ -104,3 +104,26 @@ target_sources(test_ui PRIVATE
         src/gfx.cpp)
 target_link_libraries(test_ui SDL2::Main SDL2::Image SDL2::TTF nfd)
 add_test(NAME test_ui COMMAND test_ui)
+
+add_executable(swos_import_tool tools/swos_import_tool.cpp)
+target_include_directories(swos_import_tool PRIVATE src include)
+target_sources(swos_import_tool PRIVATE
+        src/swos_import.cpp
+        src/swos_extract.cpp
+        src/rnc_decompress.cpp
+        src/io.cpp
+        src/pm3_data.cpp
+        src/game_utils.cpp
+        src/input.cpp
+        src/gfx.cpp)
+target_link_libraries(swos_import_tool SDL2::Main SDL2::Image SDL2::TTF nfd)
+
+add_executable(inspect_pm3_data tools/inspect_pm3_data.cpp)
+target_include_directories(inspect_pm3_data PRIVATE src include)
+target_sources(inspect_pm3_data PRIVATE
+        src/pm3_data.cpp)
+target_link_libraries(inspect_pm3_data SDL2::Main SDL2::Image SDL2::TTF nfd)
+
+add_executable(swap_club_indexes tools/swap_club_indexes.cpp)
+target_include_directories(swap_club_indexes PRIVATE src include)
+target_link_libraries(swap_club_indexes nfd)

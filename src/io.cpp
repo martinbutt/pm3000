@@ -5,8 +5,10 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "nfd.h"
 #include "config/constants.h"
@@ -14,6 +16,8 @@
 #include "pm3_data.h"
 
 static std::string gPm3LastError;
+static std::vector<uint8_t> gGameaTail;
+static std::size_t gGameaExtraBytes = 0;
 
 template <typename T>
 static bool load_binary_file(const std::string &filepath, T &data) {
@@ -38,21 +42,61 @@ static void save_binary_file(const std::string &filepath, const T &data) {
 namespace io {
 
 void loadBinaries(int game_nr, const std::string &game_path, gamea &game_data, gameb &club_data, gamec &player_data) {
-    load_binary_file(constructSaveFilePath(game_path, game_nr, 'A'), game_data);
-    load_binary_file(constructSaveFilePath(game_path, game_nr, 'B'), club_data);
-    load_binary_file(constructSaveFilePath(game_path, game_nr, 'C'), player_data);
+    if (!load_binary_file(constructSaveFilePath(game_path, game_nr, 'A'), game_data) ||
+        !load_binary_file(constructSaveFilePath(game_path, game_nr, 'B'), club_data) ||
+        !load_binary_file(constructSaveFilePath(game_path, game_nr, 'C'), player_data)) {
+        throw std::runtime_error(gPm3LastError);
+    }
 }
 
 void loadDefaultGamedata(const std::string &game_path, gamea &game_data) {
-    load_binary_file(constructGameFilePath(game_path, std::string{kGameDataFile}), game_data);
+    gGameaTail.clear();
+    std::filesystem::path path = constructGameFilePath(game_path, std::string{kGameDataFile});
+    std::ifstream file(path, std::ios::binary);
+    if (!file) {
+        gPm3LastError = "Missing file: " + path.string();
+        throw std::runtime_error(gPm3LastError);
+    }
+    std::vector<char> buf((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    if (buf.size() < sizeof(gamea)) {
+        gPm3LastError = "File too small: " + path.string();
+        throw std::runtime_error(gPm3LastError);
+    }
+    std::memcpy(&game_data, buf.data(), sizeof(gamea));
+    if (buf.size() > sizeof(gamea)) {
+        gGameaTail.assign(buf.begin() + static_cast<std::ptrdiff_t>(sizeof(gamea)), buf.end());
+        gGameaExtraBytes = buf.size() - sizeof(gamea);
+    } else {
+        gGameaExtraBytes = 0;
+    }
 }
 
 void loadDefaultClubdata(const std::string &game_path, gameb &club_data) {
-    load_binary_file(constructGameFilePath(game_path, std::string{kClubDataFile}), club_data);
+    if (!load_binary_file(constructGameFilePath(game_path, std::string{kClubDataFile}), club_data)) {
+        throw std::runtime_error(gPm3LastError);
+    }
 }
 
 void loadDefaultPlaydata(const std::string &game_path, gamec &player_data) {
-    load_binary_file(constructGameFilePath(game_path, std::string{kPlayDataFile}), player_data);
+    if (!load_binary_file(constructGameFilePath(game_path, std::string{kPlayDataFile}), player_data)) {
+        throw std::runtime_error(gPm3LastError);
+    }
+}
+
+void saveDefaultGamedata(const std::string &game_path, const gamea &game_data) {
+    std::filesystem::path path = constructGameFilePath(game_path, std::string{kGameDataFile});
+    std::ofstream file(path, std::ios::binary);
+    if (!file) {
+        throw std::runtime_error("Could not open file for writing: " + path.string());
+    }
+    file.write(reinterpret_cast<const char*>(&game_data), sizeof(gamea));
+    if (!gGameaTail.empty()) {
+        file.write(reinterpret_cast<const char*>(gGameaTail.data()), static_cast<std::streamsize>(gGameaTail.size()));
+    }
+}
+
+std::size_t getGameaExtraBytes() {
+    return gGameaExtraBytes;
 }
 
 bool loadMetadata(const std::string &game_path, saves &saves_dir_data, prefs &prefs_data) {
@@ -81,6 +125,14 @@ void saveBinaries(int game_nr, const std::string &game_path, gamea &game_data, g
     save_binary_file(constructSaveFilePath(game_path, game_nr, 'A'), game_data);
     save_binary_file(constructSaveFilePath(game_path, game_nr, 'B'), club_data);
     save_binary_file(constructSaveFilePath(game_path, game_nr, 'C'), player_data);
+}
+
+void saveDefaultClubdata(const std::string &game_path, const gameb &club_data) {
+    save_binary_file(constructGameFilePath(game_path, std::string{kClubDataFile}), club_data);
+}
+
+void saveDefaultPlaydata(const std::string &game_path, const gamec &player_data) {
+    save_binary_file(constructGameFilePath(game_path, std::string{kPlayDataFile}), player_data);
 }
 
 void saveMetadata(const std::string &game_path, saves &saves_dir_data, prefs &prefs_data) {

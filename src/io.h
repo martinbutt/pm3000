@@ -3,6 +3,7 @@
 
 #include <bitset>
 #include <filesystem>
+#include <vector>
 
 #include "settings.h"
 #include "pm3_defs.hh"
@@ -37,6 +38,10 @@ void loadDefaultClubdata(const std::string &gamePath, gameb &clubDataOut=clubDat
 void loadDefaultPlaydata(const std::string &gamePath, gamec &playerDataOut=playerData);
 bool loadMetadata(const std::string &gamePath, saves &savesDirOut=savesDir, prefs &prefsOut=preferences);
 void saveBinaries(int gameNumber, const std::string &gamePath, gamea &gameDataOut=gameData, gameb &clubDataOut=clubData, gamec &playerDataOut=playerData);
+void saveDefaultGamedata(const std::string &gamePath, const gamea &gameDataOut=gameData);
+std::size_t getGameaExtraBytes();
+void saveDefaultClubdata(const std::string &gamePath, const gameb &clubDataOut=clubData);
+void saveDefaultPlaydata(const std::string &gamePath, const gamec &playerDataOut=playerData);
 void saveMetadata(const std::string &gamePath, saves &savesDirOut=savesDir, prefs &prefsOut=preferences);
 void updateMetadata(int gameNumber, const std::string &gamePath);
 std::filesystem::path constructSavesFolderPath(const std::string& gamePath);

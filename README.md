@@ -64,6 +64,36 @@ cd build && ctest --output-on-failure
 
 Add more cases under `tests/` as you extend the utilities.
 
+### SWOS team import tool
+
+The repo now vendors the SWOS TEAM.xxx parser directly (no external checkout needed). A CLI helper ships with the build to import SWOS teams/players into a PM3 save:
+
+```sh
+# Build the tool
+cmake --build build --target swos_import_tool
+
+# Import TEAM.008 into save slot 1 for a PM3 folder
+./build/swos_import_tool --team /path/to/TEAM.008 --pm3 /path/to/PM3 --game 1
+```
+
+What it does:
+- Matches imported teams to existing GAMEB clubs by name and updates league/manager/kit, renaming players role-for-role.
+- Any imported teams not found replace unmatched clubs, assign a generic stadium name, copy kit colors, and rename squad players in place.
+
+## Inspecting PM3 data files
+
+`inspect_pm3_data` is now a lightweight dumper that reads `gamedata.dat` and prints the core `gamea` records as plain text for debugging.
+
+```sh
+# Build the tool
+cmake --build build --target inspect_pm3_data
+
+# Dump the gamedata summary
+./build/inspect_pm3_data --pm3 /path/to/PM3
+```
+
+This outputs every `club_index`, `top_scorer`, and league table entry in a basic, predictable format that can later be grepped or diffed while keeping manual edits minimal.
+
 ## Acknowledgements
 Special thanks to [@eb4x](https://www.github.com/eb4x) for the https://github.com/eb4x/pm3 project. PM3000 would not exist without it.
 
