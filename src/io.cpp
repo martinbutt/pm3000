@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <cstring>
 
 #include "nfd.h"
 #include "config/constants.h"
@@ -143,10 +144,16 @@ void saveMetadata(const std::filesystem::path &game_path, saves &saves_dir_data,
 }
 
 void updateMetadata(int game_nr, const std::filesystem::path &game_path) {
+    (void) game_path;
     savesDir.game[game_nr - 1].turn = gameData.turn;
     savesDir.game[game_nr - 1].year = gameData.year;
-
-    saveMetadata(game_path.parent_path(), savesDir, preferences);
+    for (int i = 0; i < 2; ++i) {
+        std::memcpy(savesDir.game[game_nr - 1].manager[i].name,
+                    gameData.manager[i].name,
+                    sizeof(savesDir.game[game_nr - 1].manager[i].name));
+        savesDir.game[game_nr - 1].manager[i].club_idx =
+                static_cast<uint8_t>(gameData.manager[i].club_idx);
+    }
 }
 
 std::filesystem::path constructSavesFolderPath(const std::filesystem::path& game_path) {
@@ -340,7 +347,7 @@ bool saveGame(const Settings &settings, int gameNumber, char *footer, size_t foo
     if (backupSaveFile(settings, gameNumber)) {
         updateMetadata(gameNumber, settings.gamePath);
         saveBinaries(gameNumber, settings.gamePath);
-        saveMetadata(settings.gamePath);
+        saveMetadata(constructSavesFolderPath(settings.gamePath));
         snprintf(footer, footerSize, "GAME %d SAVED", gameNumber);
         return true;
     }
