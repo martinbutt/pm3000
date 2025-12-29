@@ -84,6 +84,85 @@ Add more cases under `tests/` as you extend the utilities.
 
 Backups of the three PM3 game files (`gamedata.dat`, `clubdata.dat`, `playdata.dat`) or save files (`saves/game*`) are made automatically in the `PM3000/` folder inside the PM3 save directory before any import or save mutation runs.
 
+### FIFA import tool
+
+The FIFA import tool reads a CSV export (e.g. `external/FC26_YYYYMMDD.csv`) and updates `gamedata.dat`, `clubdata.dat`, and `playdata.dat` for English leagues only. It preserves National League clubs (tier 5), caps squads at 16 players per club, and will generate two Premier League clubs if only 20 are present in the CSV.
+
+```sh
+# Build the tool
+cmake --build build --target fifa_import_tool
+
+# Import into save slot 1
+./build/fifa_import_tool --csv external/FC26_20250921.csv --pm3 /path/to/PM3 --game 1 --year 2025
+```
+
+Optional flags:
+- `--import-loans` enables loan period data (see TODO: game currently overwrites loan flags on startup).
+- `--player-id <id>` imports a single CSV player by id for debugging.
+- `--debug-player <id>` prints mapping details for one player id.
+- `--verify-gamedata` checks a read/write roundtrip of `gamedata.dat`.
+- `--dropped-clubs <path>` writes the tier-4 clubs dropped into a CSV.
+
+> **Note:** If you run with `--base --import-loans`, the tool will warn that the game currently overwrites loan flags on startup with player bans.
+
+Required CSV columns:
+```
+player_id
+short_name
+overall
+player_positions
+age
+preferred_foot
+club_name
+club_loaned_from
+league_name
+league_level
+league_id
+pace
+shooting
+passing
+dribbling
+defending
+physic
+attacking_heading_accuracy
+skill_ball_control
+mentality_aggression
+mentality_composure
+goalkeeping_diving
+goalkeeping_handling
+goalkeeping_kicking
+goalkeeping_positioning
+goalkeeping_reflexes
+goalkeeping_speed
+attacking_crossing
+attacking_finishing
+attacking_short_passing
+attacking_volleys
+skill_dribbling
+skill_curve
+skill_fk_accuracy
+skill_long_passing
+movement_acceleration
+movement_sprint_speed
+movement_agility
+movement_reactions
+movement_balance
+power_shot_power
+power_jumping
+power_stamina
+power_strength
+power_long_shots
+mentality_interceptions
+mentality_positioning
+mentality_vision
+mentality_penalties
+defending_marking_awareness
+defending_standing_tackle
+defending_sliding_tackle
+wage_eur
+club_contract_valid_until_year
+```
+
 ### SWOS team import tool
 
 The repo now vendors the SWOS `TEAM.008` parser directly (no external checkout needed). A CLI helper ships with the build to import SWOS teams/players into a PM3 save:
