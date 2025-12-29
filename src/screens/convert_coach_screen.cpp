@@ -32,6 +32,25 @@ void confirmConvert(ScreenContext &context, const std::string &label, const std:
     context.addKeyPressCallback('n', clearPrompt);
     context.addKeyPressCallback('N', clearPrompt);
 }
+
+void queueConvertCoachFax(int16_t playerIdx) {
+    auto &news = gameData.manager[0].news;
+    int slot = 0;
+    for (; slot < static_cast<int>(std::size(news)); ++slot) {
+        if (news[slot].type == 0) {
+            break;
+        }
+    }
+    if (slot >= static_cast<int>(std::size(news))) {
+        slot = 0;
+    }
+
+    news[slot].type = 20;
+    news[slot].amount = 0;
+    news[slot].ix1 = 0;
+    news[slot].ix2 = playerIdx;
+    news[slot].ix3 = 0;
+}
 } // namespace
 
 void ConvertCoachScreen::draw(bool attachClickCallbacks) {
@@ -78,9 +97,11 @@ void ConvertCoachScreen::draw(bool attachClickCallbacks) {
                  player.age, player.wage, ratingLabels[(playerRating - (playerRating % 5)) / 5]);
 
         std::string playerName(player.name, strnlen(player.name, sizeof(player.name)));
-        auto clickCallback = [&, playerIdx, playerName]() {
+        int16_t globalPlayerIdx = club.player_index[playerIdx];
+        auto clickCallback = [&, playerIdx, playerName, globalPlayerIdx]() {
             confirmConvert(context, playerName, [&]() {
                 context.convertPlayerToCoach(manager, club, playerIdx);
+                queueConvertCoachFax(globalPlayerIdx);
             });
         };
 

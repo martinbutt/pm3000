@@ -358,6 +358,40 @@ struct gamea {
 
         struct news {
             int16_t type;
+            // 0 = A small brown envelope from the tax department arrives, which you pay promptly
+            // 1 = The V.A.T. demand has been paid to the department if customs and excise
+            // 2 = Due to a mistake in your last tax return you have received a bill of {amount} from the taxman
+            // 3 = You have exceeded your overdraft limit so you are now liable for a higher rate of interest
+            // 4 = Maintenance of the floodlights has cost {amount}
+            // 5 = Maintenance of the scoreboard has cost {amount}
+            // 6 = Maintenance of the undersoil heating has cost the club {amount}
+            // 7 = The cost of laying the new turf for the pitch has cost the club {amount}
+            // 8 = You have been fined {amount} by the F.A. due to the lack of safety precautions at the ground
+            // 9 = You have received a grant of {amount} from the F.A. for general ground improvements
+            // 10 = The club has been fined {amount} for bringing the game into disrepute
+            // 11 = Due to the massive crowd violence at your last home game the F.A. have fined you {amount}
+            // 12 = After receiving a complaint of poor hygiene the health authority have fined you
+            // 13 = The bill for redecorating your supporters club has come to {amount} and has now been payed
+            // 14 = The directors have donated {amount} to charity
+            // 15 = Disaster: The police have informed you that arson was the cause of last nights fire at your ground
+            // 16 = The board pays the shareholders {amount}
+            // 17 = {ix2.name} is playing for his country today
+            // 18 = A national TV station has payed your club {amount} for the live T.V. coverage of your last match
+            // 19 = {ix2.name} will be retiring in 4 weeks time
+            // 20 = {ix2.name} has now retired from playing football
+            // 21 = {ix2.name} will be taking early retirement from football in 4 weeks time
+            // 22 = {ix2.name} has now taken early retirement for a life of luxury in the Costa del Sol
+            // 23 = {ix2.name} has retired due to an injury
+            // 24 = A member of your staff has retired
+            // 25 = {ix2.name} has been injured while training
+            // 26 = The youth team coach has found a youth player who matches your requirements
+            // 27 = {ix2.name} due to having no contract left with your club has now signed for {ix1.name}
+            // 28 = {ix2.name} from {ix1.name} would like to join your club. Telephone no. 833333
+            // 29 = Phone me up {ix1.manager} from {ix1.name} Telephone No. 844444 [regarding ix2],
+            // 30 = You have been voted manager of the month
+            // 31 = Your job application to become the manager of {ix1.name} has been turned down
+            // 32 = The board of directors have given you a public vote of confidence
+
             int32_t amount;
             int16_t ix1;
             int16_t ix2;
