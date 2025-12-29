@@ -10,4 +10,6 @@ public:
 
 private:
     ScreenContext context;
+    int pendingClubIdx = -1;
+    bool changeApplied = false;
 };
